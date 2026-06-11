@@ -5,8 +5,11 @@ import { cookies } from 'next/headers'
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
+    const accessToken = searchParams.get('access_token')
 
-    console.log('Callback hit, code:', code ? 'exists' : 'missing')
+    if (accessToken) {
+        return NextResponse.redirect(`${origin}/dashboard`)
+    }
 
     if (!code) {
         return NextResponse.redirect(`${origin}/login?error=no-code`)
@@ -14,15 +17,12 @@ export async function GET(request: Request) {
 
     try {
         const cookieStore = await cookies()
-
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             {
                 cookies: {
-                    getAll() {
-                        return cookieStore.getAll()
-                    },
+                    getAll() { return cookieStore.getAll() },
                     setAll(cookiesToSet) {
                         try {
                             cookiesToSet.forEach(({ name, value, options }) =>
@@ -35,8 +35,6 @@ export async function GET(request: Request) {
         )
 
         const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-
-        console.log('Exchange result:', { email: data?.user?.email, error: error?.message })
 
         if (error || !data.user) {
             return NextResponse.redirect(`${origin}/login?error=auth`)
@@ -53,7 +51,6 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.redirect(`${origin}/dashboard`)
-
     } catch (err) {
         console.error('Callback error:', err)
         return NextResponse.redirect(`${origin}/login?error=auth`)
