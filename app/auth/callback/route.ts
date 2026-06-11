@@ -6,10 +6,10 @@ export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
 
-    console.log('Callback hit! code:', code ? 'exists' : 'missing')
+    console.log('Callback hit, code:', code ? 'exists' : 'missing')
 
     if (!code) {
-        return NextResponse.redirect(`${origin}/?error=no-code`)
+        return NextResponse.redirect(`${origin}/login?error=no-code`)
     }
 
     try {
@@ -20,21 +20,26 @@ export async function GET(request: Request) {
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             {
                 cookies: {
-                    getAll() { return cookieStore.getAll() },
+                    getAll() {
+                        return cookieStore.getAll()
+                    },
                     setAll(cookiesToSet) {
-                        cookiesToSet.forEach(({ name, value, options }) => {
-                            cookieStore.set(name, value, options)
-                        })
+                        try {
+                            cookiesToSet.forEach(({ name, value, options }) =>
+                                cookieStore.set(name, value, options)
+                            )
+                        } catch { }
                     },
                 },
             }
         )
 
         const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
         console.log('Exchange result:', { email: data?.user?.email, error: error?.message })
 
         if (error || !data.user) {
-            return NextResponse.redirect(`${origin}/?error=auth`)
+            return NextResponse.redirect(`${origin}/login?error=auth`)
         }
 
         const { data: profile } = await supabase
@@ -51,6 +56,6 @@ export async function GET(request: Request) {
 
     } catch (err) {
         console.error('Callback error:', err)
-        return NextResponse.redirect(`${origin}/?error=auth`)
+        return NextResponse.redirect(`${origin}/login?error=auth`)
     }
 }
