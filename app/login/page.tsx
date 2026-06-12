@@ -31,7 +31,6 @@ export default function Home() {
     }, [])
 
 
-
     async function handleGoogleLogin() {
         setGoogleLoading(true)
         const { error } = await supabase.auth.signInWithOAuth({
@@ -43,6 +42,7 @@ export default function Home() {
         if (error) setError(error.message)
         setGoogleLoading(false)
     }
+
 
     async function handleSubmit() {
         setLoading(true)
