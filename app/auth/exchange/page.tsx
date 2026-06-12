@@ -1,9 +1,9 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-export default function Exchange() {
+function ExchangeContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -43,5 +43,20 @@ export default function Exchange() {
                 <p className="text-white">Authenticating, please wait...</p>
             </div>
         </div>
+    )
+}
+
+export default function Exchange() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="text-4xl mb-4 animate-pulse">🧠</div>
+                    <p className="text-white">Loading...</p>
+                </div>
+            </div>
+        }>
+            <ExchangeContent />
+        </Suspense>
     )
 }
