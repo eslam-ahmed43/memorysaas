@@ -32,7 +32,6 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error || !data.user) {
-        console.error('OAuth error:', error?.message)
         return NextResponse.redirect(`${origin}/login?error=auth`)
     }
 
@@ -42,9 +41,19 @@ export async function GET(request: Request) {
         .eq('id', data.user.id)
         .single()
 
-    if (!profile) {
-        return NextResponse.redirect(`${origin}/onboarding`)
-    }
+    const response = NextResponse.redirect(
+        `${origin}${profile ? '/dashboard' : '/onboarding'}`
+    )
 
-    return NextResponse.redirect(`${origin}/dashboard`)
+    const allCookies = cookieStore.getAll()
+    allCookies.forEach(cookie => {
+        response.cookies.set(cookie.name, cookie.value, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            path: '/',
+        })
+    })
+
+    return response
 }
