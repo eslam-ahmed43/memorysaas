@@ -30,18 +30,19 @@ export default function Home() {
         }
     }, [])
 
+
     async function handleGoogleLogin() {
         setGoogleLoading(true)
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: `https://memorysaas-qjg3.vercel.app/auth/callback`,
+                skipBrowserRedirect: false,
             }
         })
         if (error) setError(error.message)
         setGoogleLoading(false)
     }
-
 
     async function handleSubmit() {
         setLoading(true)
