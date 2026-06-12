@@ -31,6 +31,7 @@ export default function Home() {
     }, [])
 
 
+
     async function handleGoogleLogin() {
         setGoogleLoading(true)
         const { error } = await supabase.auth.signInWithOAuth({
