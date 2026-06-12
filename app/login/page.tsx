@@ -36,8 +36,7 @@ export default function Home() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `https://memorysaas-qjg3.vercel.app/auth/callback`,
-                skipBrowserRedirect: false,
+                redirectTo: `https://memorysaas-qjg3.vercel.app/auth/exchange`,
             }
         })
         if (error) setError(error.message)
