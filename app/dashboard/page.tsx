@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { t } from '@/lib/translations'
 
 export default function Dashboard() {
     const [user, setUser] = useState<any>(null)
@@ -22,19 +23,24 @@ export default function Dashboard() {
     const [newMemberRole, setNewMemberRole] = useState('employee')
     const [intelligence, setIntelligence] = useState<any>(null)
     const [loadingIntelligence, setLoadingIntelligence] = useState(false)
+    const [lang, setLang] = useState<'ar' | 'en'>('en')
     const router = useRouter()
+
+    const tx = t[lang]
+    const isRTL = lang === 'ar'
 
     useEffect(() => { loadData() }, [])
 
     async function loadData() {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { router.push('/'); return }
+        if (!user) { router.push('/login'); return }
         setUser(user)
         const res = await fetch(`/api/profile?user_id=${user.id}`)
         const data = await res.json()
         if (data.profile) {
             setProfile(data.profile)
             setCompany(data.company)
+            setLang(data.company?.language === 'ar' ? 'ar' : 'en')
             loadDocuments(data.profile.company_id)
             loadConversations(data.profile.company_id)
             loadTimeline(data.profile.company_id)
@@ -121,7 +127,7 @@ export default function Dashboard() {
     }
 
     async function handleDelete(docId: string) {
-        if (!confirm('هل أنت متأكد من حذف هذه الوثيقة؟')) return
+        if (!confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذه الوثيقة؟' : 'Are you sure you want to delete this document?')) return
         const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE' })
         const data = await res.json()
         if (data.success) setDocuments(prev => prev.filter(d => d.id !== docId))
@@ -141,7 +147,7 @@ export default function Dashboard() {
     }
 
     async function handleRemoveMember(userId: string) {
-        if (!confirm('هل أنت متأكد من إزالة هذا العضو؟')) return
+        if (!confirm(lang === 'ar' ? 'هل أنت متأكد من إزالة هذا العضو؟' : 'Are you sure you want to remove this member?')) return
         await fetch('/api/team', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
@@ -152,13 +158,13 @@ export default function Dashboard() {
 
     async function handleLogout() {
         await supabase.auth.signOut()
-        router.push('/')
+        router.push('/login')
     }
 
     const roleLabel = (role: string) => {
-        if (role === 'owner') return '👑 Owner'
-        if (role === 'dept_head') return '🏢 Dept Head'
-        return '👤 Employee'
+        if (role === 'owner') return `👑 ${tx.owner}`
+        if (role === 'dept_head') return `🏢 ${tx.deptHead}`
+        return `👤 ${tx.employee}`
     }
 
     const canDelete = (doc: any) =>
@@ -172,14 +178,13 @@ export default function Dashboard() {
         return 'text-green-400 bg-green-900/30 border-green-800'
     }
 
-    const priorityColor = (priority: string) => {
-        if (priority === 'high') return 'text-red-400'
-        if (priority === 'medium') return 'text-yellow-400'
-        return 'text-green-400'
+    const severityLabel = (severity: string) => {
+        if (lang === 'ar') return severity === 'high' ? 'عالي' : severity === 'medium' ? 'متوسط' : 'منخفض'
+        return severity === 'high' ? 'High' : severity === 'medium' ? 'Medium' : 'Low'
     }
 
     return (
-        <div className="min-h-screen bg-gray-950 text-white">
+        <div className="min-h-screen bg-gray-950 text-white" dir={isRTL ? 'rtl' : 'ltr'}>
             <nav className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <span className="text-2xl">🧠</span>
@@ -191,28 +196,25 @@ export default function Dashboard() {
                 <div className="flex items-center gap-4">
                     <span className="text-xs text-purple-400">{roleLabel(profile?.role)}</span>
                     <span className="text-sm text-gray-400">{user?.email}</span>
-                    <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">خروج</button>
+                    <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">
+                        {tx.logout}
+                    </button>
                 </div>
             </nav>
 
             <div className="max-w-6xl mx-auto p-6">
                 <div className="grid grid-cols-4 gap-4 mb-8">
-                    <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-                        <p className="text-gray-400 text-sm mb-1">الوثائق</p>
-                        <p className="text-3xl font-bold text-purple-400">{documents.length}</p>
-                    </div>
-                    <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-                        <p className="text-gray-400 text-sm mb-1">المحادثات</p>
-                        <p className="text-3xl font-bold text-purple-400">{conversations.length}</p>
-                    </div>
-                    <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-                        <p className="text-gray-400 text-sm mb-1">الأحداث</p>
-                        <p className="text-3xl font-bold text-purple-400">{timeline.length}</p>
-                    </div>
-                    <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-                        <p className="text-gray-400 text-sm mb-1">الفريق</p>
-                        <p className="text-3xl font-bold text-purple-400">{members.length}</p>
-                    </div>
+                    {[
+                        { label: tx.documents, value: documents.length },
+                        { label: tx.conversations, value: conversations.length },
+                        { label: tx.events, value: timeline.length },
+                        { label: tx.team, value: members.length },
+                    ].map((stat, i) => (
+                        <div key={i} className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+                            <p className="text-gray-400 text-sm mb-1">{stat.label}</p>
+                            <p className="text-3xl font-bold text-purple-400">{stat.value}</p>
+                        </div>
+                    ))}
                 </div>
 
                 <div className="flex gap-2 mb-6 flex-wrap">
@@ -222,10 +224,11 @@ export default function Dashboard() {
                             if (tab === 'intelligence' && !intelligence) loadIntelligence()
                         }}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-                            {tab === 'chat' ? '💬 اسأل الذاكرة' :
-                                tab === 'intelligence' ? '🎯 ذكاء تنفيذي' :
-                                    tab === 'documents' ? '📄 الوثائق' :
-                                        tab === 'timeline' ? '📅 التايم لاين' : '👥 الفريق'}
+                            {tab === 'chat' ? `💬 ${tx.askMemory}` :
+                                tab === 'intelligence' ? `🎯 ${tx.intelligence}` :
+                                    tab === 'documents' ? `📄 ${tx.documents}` :
+                                        tab === 'timeline' ? `📅 ${lang === 'ar' ? 'التايم لاين' : 'Timeline'}` :
+                                            `👥 ${tx.team}`}
                         </button>
                     ))}
                 </div>
@@ -234,21 +237,21 @@ export default function Dashboard() {
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                             <textarea value={question} onChange={(e) => setQuestion(e.target.value)}
-                                placeholder="اسأل أي سؤال عن شركتك..."
+                                placeholder={tx.askQuestion}
                                 className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500 resize-none"
                                 rows={3} />
                             <button onClick={handleAsk} disabled={asking}
                                 className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-2 rounded-lg transition-all disabled:opacity-50">
-                                {asking ? 'جاري البحث...' : 'اسأل'}
+                                {asking ? tx.searching : tx.ask}
                             </button>
                         </div>
                         {answer && (
                             <div className="bg-gray-900 rounded-xl p-6 border border-purple-800">
-                                <h3 className="text-purple-400 font-medium mb-3">الإجابة:</h3>
+                                <h3 className="text-purple-400 font-medium mb-3">{tx.answer}:</h3>
                                 <p className="text-gray-200 leading-relaxed">{answer}</p>
                                 {sources.length > 0 && (
                                     <div className="mt-4 pt-4 border-t border-gray-800">
-                                        <p className="text-gray-400 text-sm mb-2">المصادر:</p>
+                                        <p className="text-gray-400 text-sm mb-2">{tx.sources}:</p>
                                         {sources.map((s, i) => (
                                             <div key={i} className="text-xs text-gray-500 bg-gray-800 rounded p-2 mb-1">
                                                 <span className="text-purple-400">{s.document_name}</span> — {s.content}
@@ -260,11 +263,17 @@ export default function Dashboard() {
                         )}
                         {conversations.length > 0 && (
                             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                <h3 className="text-gray-400 font-medium mb-3">المحادثات السابقة:</h3>
+                                <h3 className="text-gray-400 font-medium mb-3">
+                                    {lang === 'ar' ? 'المحادثات السابقة' : 'Previous Conversations'}:
+                                </h3>
                                 {conversations.slice(0, 5).map((c) => (
                                     <div key={c.id} className="border-b border-gray-800 pb-3 mb-3 last:border-0">
-                                        <p className="text-sm text-purple-400 mb-1">س: {c.question}</p>
-                                        <p className="text-sm text-gray-400">ج: {c.answer.substring(0, 150)}...</p>
+                                        <p className="text-sm text-purple-400 mb-1">
+                                            {lang === 'ar' ? 'س' : 'Q'}: {c.question}
+                                        </p>
+                                        <p className="text-sm text-gray-400">
+                                            {lang === 'ar' ? 'ج' : 'A'}: {c.answer.substring(0, 150)}...
+                                        </p>
                                     </div>
                                 ))}
                             </div>
@@ -277,19 +286,17 @@ export default function Dashboard() {
                         {loadingIntelligence ? (
                             <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
                                 <div className="text-4xl mb-4 animate-pulse">🧠</div>
-                                <p className="text-purple-400 font-medium">جاري تحليل بيانات شركتك...</p>
-                                <p className="text-gray-500 text-sm mt-2">الذكاء الاصطناعي بيحلل كل الوثائق والأحداث</p>
+                                <p className="text-purple-400 font-medium">{tx.analyzing}</p>
                             </div>
                         ) : intelligence ? (
                             <>
-                                {/* Scores */}
                                 {intelligence.scores && (
                                     <div className="grid grid-cols-4 gap-4">
                                         {[
-                                            { label: 'مستوى المعرفة', value: intelligence.scores.knowledge_score, color: 'purple' },
-                                            { label: 'قوة الفريق', value: intelligence.scores.team_score, color: 'blue' },
-                                            { label: 'مستوى النشاط', value: intelligence.scores.activity_score, color: 'green' },
-                                            { label: 'التقييم الكلي', value: intelligence.scores.overall_score, color: 'yellow' },
+                                            { label: lang === 'ar' ? 'مستوى المعرفة' : 'Knowledge Score', value: intelligence.scores.knowledge_score, color: 'purple' },
+                                            { label: lang === 'ar' ? 'قوة الفريق' : 'Team Score', value: intelligence.scores.team_score, color: 'blue' },
+                                            { label: lang === 'ar' ? 'مستوى النشاط' : 'Activity Score', value: intelligence.scores.activity_score, color: 'green' },
+                                            { label: lang === 'ar' ? 'التقييم الكلي' : 'Overall Score', value: intelligence.scores.overall_score, color: 'yellow' },
                                         ].map((score, i) => (
                                             <div key={i} className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
                                                 <div className="relative w-16 h-16 mx-auto mb-3">
@@ -311,25 +318,23 @@ export default function Dashboard() {
                                     </div>
                                 )}
 
-                                {/* Summary */}
                                 {intelligence.summary && (
                                     <div className="bg-purple-900/20 rounded-xl p-6 border border-purple-800">
-                                        <h3 className="text-purple-400 font-medium mb-2">📋 الملخص التنفيذي</h3>
+                                        <h3 className="text-purple-400 font-medium mb-2">📋 {tx.summary}</h3>
                                         <p className="text-gray-200 leading-relaxed">{intelligence.summary}</p>
                                     </div>
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Risks */}
                                     {intelligence.risks?.length > 0 && (
                                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                            <h3 className="font-medium mb-4 text-red-400">⚠️ المخاطر ({intelligence.risks.length})</h3>
+                                            <h3 className="font-medium mb-4 text-red-400">⚠️ {tx.risks} ({intelligence.risks.length})</h3>
                                             {intelligence.risks.map((risk: any, i: number) => (
                                                 <div key={i} className={`rounded-lg p-3 mb-3 border ${severityColor(risk.severity)}`}>
                                                     <div className="flex items-center justify-between mb-1">
                                                         <p className="font-medium text-sm">{risk.title}</p>
                                                         <span className={`text-xs px-2 py-0.5 rounded-full border ${severityColor(risk.severity)}`}>
-                                                            {risk.severity === 'high' ? 'عالي' : risk.severity === 'medium' ? 'متوسط' : 'منخفض'}
+                                                            {severityLabel(risk.severity)}
                                                         </span>
                                                     </div>
                                                     <p className="text-xs mt-1 opacity-80">{risk.description}</p>
@@ -338,10 +343,9 @@ export default function Dashboard() {
                                         </div>
                                     )}
 
-                                    {/* Opportunities */}
                                     {intelligence.opportunities?.length > 0 && (
                                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                            <h3 className="font-medium mb-4 text-green-400">🚀 الفرص ({intelligence.opportunities.length})</h3>
+                                            <h3 className="font-medium mb-4 text-green-400">🚀 {tx.opportunities} ({intelligence.opportunities.length})</h3>
                                             {intelligence.opportunities.map((opp: any, i: number) => (
                                                 <div key={i} className="bg-green-900/20 rounded-lg p-3 mb-3 border border-green-800">
                                                     <p className="font-medium text-sm text-green-400">{opp.title}</p>
@@ -352,10 +356,9 @@ export default function Dashboard() {
                                     )}
                                 </div>
 
-                                {/* Recommendations */}
                                 {intelligence.recommendations?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-yellow-400">💡 التوصيات ({intelligence.recommendations.length})</h3>
+                                        <h3 className="font-medium mb-4 text-yellow-400">💡 {tx.recommendations} ({intelligence.recommendations.length})</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             {intelligence.recommendations.map((rec: any, i: number) => (
                                                 <div key={i} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -370,10 +373,9 @@ export default function Dashboard() {
                                     </div>
                                 )}
 
-                                {/* Insights */}
                                 {intelligence.insights?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-blue-400">🔍 ملاحظات ذكية ({intelligence.insights.length})</h3>
+                                        <h3 className="font-medium mb-4 text-blue-400">🔍 {tx.insights} ({intelligence.insights.length})</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             {intelligence.insights.map((insight: any, i: number) => (
                                                 <div key={i} className="bg-blue-900/20 rounded-lg p-4 border border-blue-800">
@@ -387,17 +389,17 @@ export default function Dashboard() {
 
                                 <button onClick={loadIntelligence}
                                     className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
-                                    🔄 تحديث التحليل
+                                    🔄 {tx.refresh}
                                 </button>
                             </>
                         ) : (
                             <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
                                 <div className="text-4xl mb-4">🎯</div>
-                                <h3 className="font-medium mb-2">الذكاء التنفيذي</h3>
-                                <p className="text-gray-500 text-sm mb-6">ارفع وثائق أولاً عشان الـ AI يحلل شركتك</p>
+                                <h3 className="font-medium mb-2">{tx.intelligence}</h3>
+                                <p className="text-gray-500 text-sm mb-6">{tx.uploadFirst}</p>
                                 <button onClick={loadIntelligence}
                                     className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all">
-                                    تحليل الشركة الآن
+                                    {tx.analyze}
                                 </button>
                             </div>
                         )}
@@ -407,11 +409,16 @@ export default function Dashboard() {
                 {activeTab === 'documents' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                            <h3 className="font-medium mb-4">رفع وثيقة جديدة</h3>
+                            <h3 className="font-medium mb-4">{tx.uploadDoc}</h3>
                             <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-700 rounded-xl cursor-pointer hover:border-purple-500 transition-colors">
                                 <div className="text-center">
-                                    {uploading ? <p className="text-purple-400">جاري الرفع والمعالجة...</p> : (
-                                        <><p className="text-gray-400 mb-1">اضغط لرفع ملف</p><p className="text-gray-600 text-sm">PDF, DOCX, TXT, XLSX, CSV, Code</p></>
+                                    {uploading ? <p className="text-purple-400">{tx.processing}</p> : (
+                                        <>
+                                            <p className="text-gray-400 mb-1">
+                                                {lang === 'ar' ? 'اضغط لرفع ملف' : 'Click to upload file'}
+                                            </p>
+                                            <p className="text-gray-600 text-sm">PDF, DOCX, TXT, XLSX, CSV, Code</p>
+                                        </>
                                     )}
                                 </div>
                                 <input type="file" className="hidden"
@@ -420,22 +427,24 @@ export default function Dashboard() {
                             </label>
                         </div>
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                            <h3 className="font-medium mb-4">الوثائق المرفوعة ({documents.length})</h3>
-                            {documents.length === 0 ? <p className="text-gray-500 text-sm">لا توجد وثائق بعد</p> : (
+                            <h3 className="font-medium mb-4">{tx.documents} ({documents.length})</h3>
+                            {documents.length === 0 ? <p className="text-gray-500 text-sm">{tx.noDocuments}</p> : (
                                 documents.map((doc) => (
                                     <div key={doc.id} className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0">
                                         <div>
                                             <p className="font-medium text-sm">{doc.name}</p>
-                                            <p className="text-xs text-gray-500">{new Date(doc.created_at).toLocaleDateString('ar')}</p>
+                                            <p className="text-xs text-gray-500">
+                                                {new Date(doc.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
+                                            </p>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <span className={`text-xs px-2 py-1 rounded-full ${doc.status === 'completed' ? 'bg-green-900 text-green-400' : 'bg-yellow-900 text-yellow-400'}`}>
-                                                {doc.status === 'completed' ? 'مكتمل' : 'جاري المعالجة'}
+                                                {doc.status === 'completed' ? tx.completed : tx.processing}
                                             </span>
                                             {canDelete(doc) && (
                                                 <button onClick={() => handleDelete(doc.id)}
                                                     className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-800 hover:border-red-600 transition-colors">
-                                                    حذف
+                                                    {tx.delete}
                                                 </button>
                                             )}
                                         </div>
@@ -449,22 +458,24 @@ export default function Dashboard() {
                 {activeTab === 'timeline' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                            <h3 className="font-medium mb-6">📅 تاريخ الشركة</h3>
+                            <h3 className="font-medium mb-6">
+                                📅 {lang === 'ar' ? 'تاريخ الشركة' : 'Company Timeline'}
+                            </h3>
                             {timeline.length === 0 ? (
-                                <p className="text-gray-500 text-sm">لا توجد أحداث بعد — ارفع وثائق لاستخراج الأحداث تلقائياً</p>
+                                <p className="text-gray-500 text-sm">{tx.uploadFirst}</p>
                             ) : (
                                 <div className="relative">
-                                    <div className="absolute right-4 top-0 bottom-0 w-0.5 bg-purple-800" />
+                                    <div className={`absolute ${isRTL ? 'right-4' : 'left-4'} top-0 bottom-0 w-0.5 bg-purple-800`} />
                                     {timeline.map((event, i) => (
-                                        <div key={event.id} className="flex gap-6 mb-6 relative">
+                                        <div key={event.id} className={`flex gap-6 mb-6 relative ${isRTL ? 'flex-row-reverse' : ''}`}>
                                             <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold shrink-0 z-10">
                                                 {i + 1}
                                             </div>
                                             <div className="flex-1 bg-gray-800 rounded-xl p-4 border border-gray-700">
                                                 <div className="flex items-start justify-between mb-2">
                                                     <h4 className="font-medium text-white text-sm">{event.title}</h4>
-                                                    <span className="text-xs text-purple-400 shrink-0 mr-2">
-                                                        {new Date(event.event_date).toLocaleDateString('ar')}
+                                                    <span className="text-xs text-purple-400 shrink-0 mx-2">
+                                                        {new Date(event.event_date).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
                                                     </span>
                                                 </div>
                                                 <p className="text-gray-400 text-sm">{event.description}</p>
@@ -481,32 +492,34 @@ export default function Dashboard() {
                     <div className="space-y-4">
                         {profile?.role === 'owner' && (
                             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                <h3 className="font-medium mb-4">إنشاء كود دعوة</h3>
+                                <h3 className="font-medium mb-4">{tx.invite}</h3>
                                 <div className="flex gap-3">
                                     <select value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)}
                                         className="bg-gray-800 text-white rounded-lg px-4 py-2 border border-gray-700 focus:outline-none focus:border-purple-500">
-                                        <option value="employee">👤 موظف</option>
-                                        <option value="dept_head">🏢 رئيس قسم</option>
+                                        <option value="employee">👤 {tx.employee}</option>
+                                        <option value="dept_head">🏢 {tx.deptHead}</option>
                                     </select>
                                     <button onClick={handleGenerateInvite} disabled={generatingCode}
                                         className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all disabled:opacity-50">
-                                        {generatingCode ? '...' : 'إنشاء كود'}
+                                        {generatingCode ? '...' : lang === 'ar' ? 'إنشاء كود' : 'Generate Code'}
                                     </button>
                                 </div>
                                 {inviteCodes.length > 0 && (
                                     <div className="mt-4">
-                                        <p className="text-gray-400 text-sm mb-3">أكواد الدعوة:</p>
+                                        <p className="text-gray-400 text-sm mb-3">
+                                            {lang === 'ar' ? 'أكواد الدعوة:' : 'Invite Codes:'}
+                                        </p>
                                         {inviteCodes.slice(0, 5).map(code => (
                                             <div key={code.id} className="flex items-center justify-between bg-gray-800 rounded-lg p-3 mb-2">
                                                 <div>
                                                     <span className="font-mono text-purple-400 text-lg font-bold">{code.code}</span>
-                                                    <span className="text-gray-500 text-xs mr-3">
-                                                        {code.role === 'employee' ? '👤 موظف' : '🏢 رئيس قسم'}
+                                                    <span className="text-gray-500 text-xs mx-3">
+                                                        {code.role === 'employee' ? `👤 ${tx.employee}` : `🏢 ${tx.deptHead}`}
                                                     </span>
                                                 </div>
                                                 <button onClick={() => navigator.clipboard.writeText(code.code)}
                                                     className="text-xs text-purple-400 hover:text-purple-300 px-2 py-1 rounded border border-purple-800">
-                                                    نسخ
+                                                    {tx.copy}
                                                 </button>
                                             </div>
                                         ))}
@@ -515,7 +528,7 @@ export default function Dashboard() {
                             </div>
                         )}
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                            <h3 className="font-medium mb-4">أعضاء الفريق ({members.length})</h3>
+                            <h3 className="font-medium mb-4">{tx.members} ({members.length})</h3>
                             {members.map(member => (
                                 <div key={member.id} className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0">
                                     <div>
@@ -525,7 +538,7 @@ export default function Dashboard() {
                                     {profile?.role === 'owner' && member.id !== user?.id && (
                                         <button onClick={() => handleRemoveMember(member.id)}
                                             className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-800">
-                                            إزالة
+                                            {tx.remove}
                                         </button>
                                     )}
                                 </div>
