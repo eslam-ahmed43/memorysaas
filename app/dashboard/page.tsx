@@ -13,6 +13,10 @@ export default function Dashboard() {
     const [timeline, setTimeline] = useState<any[]>([])
     const [members, setMembers] = useState<any[]>([])
     const [inviteCodes, setInviteCodes] = useState<any[]>([])
+    const [decisions, setDecisions] = useState<any[]>([])
+    const [alerts, setAlerts] = useState<any[]>([])
+    const [briefing, setBriefing] = useState<any>(null)
+    const [loadingBriefing, setLoadingBriefing] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [question, setQuestion] = useState('')
     const [answer, setAnswer] = useState('')
@@ -24,6 +28,8 @@ export default function Dashboard() {
     const [intelligence, setIntelligence] = useState<any>(null)
     const [loadingIntelligence, setLoadingIntelligence] = useState(false)
     const [lang, setLang] = useState<'ar' | 'en'>('en')
+    const [newDecision, setNewDecision] = useState({ title: '', description: '' })
+    const [addingDecision, setAddingDecision] = useState(false)
     const router = useRouter()
 
     const tx = t[lang]
@@ -45,6 +51,8 @@ export default function Dashboard() {
             loadConversations(data.profile.company_id)
             loadTimeline(data.profile.company_id)
             loadTeam(data.profile.company_id)
+            loadDecisions(data.profile.company_id)
+            loadAlerts(data.profile.company_id)
         }
     }
 
@@ -77,6 +85,18 @@ export default function Dashboard() {
         if (codesData.codes) setInviteCodes(codesData.codes)
     }
 
+    async function loadDecisions(companyId: string) {
+        const res = await fetch(`/api/decisions?company_id=${companyId}`)
+        const data = await res.json()
+        if (data.decisions) setDecisions(data.decisions)
+    }
+
+    async function loadAlerts(companyId: string) {
+        const res = await fetch(`/api/alerts?company_id=${companyId}`)
+        const data = await res.json()
+        if (data.alerts) setAlerts(data.alerts)
+    }
+
     async function loadIntelligence() {
         if (!profile) return
         setLoadingIntelligence(true)
@@ -88,6 +108,50 @@ export default function Dashboard() {
         const data = await res.json()
         if (data.intelligence) setIntelligence(data.intelligence)
         setLoadingIntelligence(false)
+    }
+
+    async function loadBriefing() {
+        if (!profile) return
+        setLoadingBriefing(true)
+        const res = await fetch('/api/briefing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: profile.company_id })
+        })
+        const data = await res.json()
+        if (data.briefing) setBriefing(data.briefing)
+        setLoadingBriefing(false)
+    }
+
+    async function handleAddDecision() {
+        if (!newDecision.title.trim() || !profile) return
+        setAddingDecision(true)
+        const res = await fetch('/api/decisions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                company_id: profile.company_id,
+                title: newDecision.title,
+                description: newDecision.description,
+                made_by: user.id,
+            })
+        })
+        const data = await res.json()
+        if (data.success) {
+            await loadDecisions(profile.company_id)
+            await loadAlerts(profile.company_id)
+            setNewDecision({ title: '', description: '' })
+        }
+        setAddingDecision(false)
+    }
+
+    async function handleResolveAlert(alertId: string) {
+        await fetch('/api/alerts', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: alertId })
+        })
+        setAlerts(prev => prev.filter(a => a.id !== alertId))
     }
 
     async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -127,7 +191,7 @@ export default function Dashboard() {
     }
 
     async function handleDelete(docId: string) {
-        if (!confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذه الوثيقة؟' : 'Are you sure you want to delete this document?')) return
+        if (!confirm(lang === 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?')) return
         const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE' })
         const data = await res.json()
         if (data.success) setDocuments(prev => prev.filter(d => d.id !== docId))
@@ -147,7 +211,7 @@ export default function Dashboard() {
     }
 
     async function handleRemoveMember(userId: string) {
-        if (!confirm(lang === 'ar' ? 'هل أنت متأكد من إزالة هذا العضو؟' : 'Are you sure you want to remove this member?')) return
+        if (!confirm(lang === 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?')) return
         await fetch('/api/team', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
@@ -168,9 +232,7 @@ export default function Dashboard() {
     }
 
     const canDelete = (doc: any) =>
-        profile?.role === 'owner' ||
-        profile?.role === 'dept_head' ||
-        doc.uploaded_by === user?.id
+        profile?.role === 'owner' || profile?.role === 'dept_head' || doc.uploaded_by === user?.id
 
     const severityColor = (severity: string) => {
         if (severity === 'high') return 'text-red-400 bg-red-900/30 border-red-800'
@@ -181,6 +243,22 @@ export default function Dashboard() {
     const severityLabel = (severity: string) => {
         if (lang === 'ar') return severity === 'high' ? 'عالي' : severity === 'medium' ? 'متوسط' : 'منخفض'
         return severity === 'high' ? 'High' : severity === 'medium' ? 'Medium' : 'Low'
+    }
+
+    const tabs = ['chat', 'intelligence', 'briefing', 'decisions', 'alerts', 'documents', 'timeline', 'team']
+
+    const tabLabel = (tab: string) => {
+        const labels: any = {
+            chat: `💬 ${tx.askMemory}`,
+            intelligence: `🎯 ${tx.intelligence}`,
+            briefing: `📊 ${lang === 'ar' ? 'التقرير الأسبوعي' : 'Weekly Briefing'}`,
+            decisions: `⚖️ ${lang === 'ar' ? 'القرارات' : 'Decisions'}`,
+            alerts: `🚨 ${lang === 'ar' ? 'التنبيهات' : 'Alerts'} ${alerts.length > 0 ? `(${alerts.length})` : ''}`,
+            documents: `📄 ${tx.documents}`,
+            timeline: `📅 ${lang === 'ar' ? 'التايم لاين' : 'Timeline'}`,
+            team: `👥 ${tx.team}`,
+        }
+        return labels[tab]
     }
 
     return (
@@ -194,6 +272,11 @@ export default function Dashboard() {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    {alerts.length > 0 && (
+                        <span className="bg-red-600 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                            {alerts.length} {lang === 'ar' ? 'تنبيه' : 'alerts'}
+                        </span>
+                    )}
                     <span className="text-xs text-purple-400">{roleLabel(profile?.role)}</span>
                     <span className="text-sm text-gray-400">{user?.email}</span>
                     <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">
@@ -206,33 +289,30 @@ export default function Dashboard() {
                 <div className="grid grid-cols-4 gap-4 mb-8">
                     {[
                         { label: tx.documents, value: documents.length },
-                        { label: tx.conversations, value: conversations.length },
-                        { label: tx.events, value: timeline.length },
-                        { label: tx.team, value: members.length },
+                        { label: lang === 'ar' ? 'القرارات' : 'Decisions', value: decisions.length },
+                        { label: lang === 'ar' ? 'الأحداث' : 'Events', value: timeline.length },
+                        { label: lang === 'ar' ? 'التنبيهات' : 'Alerts', value: alerts.length, alert: alerts.length > 0 },
                     ].map((stat, i) => (
-                        <div key={i} className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+                        <div key={i} className={`bg-gray-900 rounded-xl p-4 border ${stat.alert ? 'border-red-800' : 'border-gray-800'}`}>
                             <p className="text-gray-400 text-sm mb-1">{stat.label}</p>
-                            <p className="text-3xl font-bold text-purple-400">{stat.value}</p>
+                            <p className={`text-3xl font-bold ${stat.alert ? 'text-red-400' : 'text-purple-400'}`}>{stat.value}</p>
                         </div>
                     ))}
                 </div>
 
                 <div className="flex gap-2 mb-6 flex-wrap">
-                    {['chat', 'intelligence', 'documents', 'timeline', 'team'].map((tab) => (
+                    {tabs.map((tab) => (
                         <button key={tab} onClick={() => {
                             setActiveTab(tab)
                             if (tab === 'intelligence' && !intelligence) loadIntelligence()
                         }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-                            {tab === 'chat' ? `💬 ${tx.askMemory}` :
-                                tab === 'intelligence' ? `🎯 ${tx.intelligence}` :
-                                    tab === 'documents' ? `📄 ${tx.documents}` :
-                                        tab === 'timeline' ? `📅 ${lang === 'ar' ? 'التايم لاين' : 'Timeline'}` :
-                                            `👥 ${tx.team}`}
+                            className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${activeTab === tab ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                            {tabLabel(tab)}
                         </button>
                     ))}
                 </div>
 
+                {/* CHAT TAB */}
                 {activeTab === 'chat' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
@@ -268,12 +348,8 @@ export default function Dashboard() {
                                 </h3>
                                 {conversations.slice(0, 5).map((c) => (
                                     <div key={c.id} className="border-b border-gray-800 pb-3 mb-3 last:border-0">
-                                        <p className="text-sm text-purple-400 mb-1">
-                                            {lang === 'ar' ? 'س' : 'Q'}: {c.question}
-                                        </p>
-                                        <p className="text-sm text-gray-400">
-                                            {lang === 'ar' ? 'ج' : 'A'}: {c.answer.substring(0, 150)}...
-                                        </p>
+                                        <p className="text-sm text-purple-400 mb-1">{lang === 'ar' ? 'س' : 'Q'}: {c.question}</p>
+                                        <p className="text-sm text-gray-400">{lang === 'ar' ? 'ج' : 'A'}: {c.answer.substring(0, 150)}...</p>
                                     </div>
                                 ))}
                             </div>
@@ -281,6 +357,7 @@ export default function Dashboard() {
                     </div>
                 )}
 
+                {/* INTELLIGENCE TAB */}
                 {activeTab === 'intelligence' && (
                     <div className="space-y-4">
                         {loadingIntelligence ? (
@@ -293,10 +370,10 @@ export default function Dashboard() {
                                 {intelligence.scores && (
                                     <div className="grid grid-cols-4 gap-4">
                                         {[
-                                            { label: lang === 'ar' ? 'مستوى المعرفة' : 'Knowledge Score', value: intelligence.scores.knowledge_score, color: 'purple' },
-                                            { label: lang === 'ar' ? 'قوة الفريق' : 'Team Score', value: intelligence.scores.team_score, color: 'blue' },
-                                            { label: lang === 'ar' ? 'مستوى النشاط' : 'Activity Score', value: intelligence.scores.activity_score, color: 'green' },
-                                            { label: lang === 'ar' ? 'التقييم الكلي' : 'Overall Score', value: intelligence.scores.overall_score, color: 'yellow' },
+                                            { label: lang === 'ar' ? 'مستوى المعرفة' : 'Knowledge', value: intelligence.scores.knowledge_score, color: 'purple' },
+                                            { label: lang === 'ar' ? 'قوة الفريق' : 'Team', value: intelligence.scores.team_score, color: 'blue' },
+                                            { label: lang === 'ar' ? 'النشاط' : 'Activity', value: intelligence.scores.activity_score, color: 'green' },
+                                            { label: lang === 'ar' ? 'التقييم الكلي' : 'Overall', value: intelligence.scores.overall_score, color: 'yellow' },
                                         ].map((score, i) => (
                                             <div key={i} className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
                                                 <div className="relative w-16 h-16 mx-auto mb-3">
@@ -304,9 +381,7 @@ export default function Dashboard() {
                                                         <circle cx="18" cy="18" r="15.9" fill="none" stroke="#374151" strokeWidth="3" />
                                                         <circle cx="18" cy="18" r="15.9" fill="none"
                                                             stroke={score.color === 'purple' ? '#9333ea' : score.color === 'blue' ? '#3b82f6' : score.color === 'green' ? '#22c55e' : '#eab308'}
-                                                            strokeWidth="3"
-                                                            strokeDasharray={`${score.value} 100`}
-                                                            strokeLinecap="round" />
+                                                            strokeWidth="3" strokeDasharray={`${score.value} 100`} strokeLinecap="round" />
                                                     </svg>
                                                     <div className="absolute inset-0 flex items-center justify-center">
                                                         <span className="text-white font-bold text-sm">{score.value}%</span>
@@ -317,14 +392,12 @@ export default function Dashboard() {
                                         ))}
                                     </div>
                                 )}
-
                                 {intelligence.summary && (
                                     <div className="bg-purple-900/20 rounded-xl p-6 border border-purple-800">
                                         <h3 className="text-purple-400 font-medium mb-2">📋 {tx.summary}</h3>
                                         <p className="text-gray-200 leading-relaxed">{intelligence.summary}</p>
                                     </div>
                                 )}
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {intelligence.risks?.length > 0 && (
                                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
@@ -342,7 +415,6 @@ export default function Dashboard() {
                                             ))}
                                         </div>
                                     )}
-
                                     {intelligence.opportunities?.length > 0 && (
                                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                                             <h3 className="font-medium mb-4 text-green-400">🚀 {tx.opportunities} ({intelligence.opportunities.length})</h3>
@@ -355,10 +427,9 @@ export default function Dashboard() {
                                         </div>
                                     )}
                                 </div>
-
                                 {intelligence.recommendations?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-yellow-400">💡 {tx.recommendations} ({intelligence.recommendations.length})</h3>
+                                        <h3 className="font-medium mb-4 text-yellow-400">💡 {tx.recommendations}</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             {intelligence.recommendations.map((rec: any, i: number) => (
                                                 <div key={i} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -372,10 +443,9 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                 )}
-
                                 {intelligence.insights?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-blue-400">🔍 {tx.insights} ({intelligence.insights.length})</h3>
+                                        <h3 className="font-medium mb-4 text-blue-400">🔍 {tx.insights}</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             {intelligence.insights.map((insight: any, i: number) => (
                                                 <div key={i} className="bg-blue-900/20 rounded-lg p-4 border border-blue-800">
@@ -386,7 +456,6 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                 )}
-
                                 <button onClick={loadIntelligence}
                                     className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
                                     🔄 {tx.refresh}
@@ -406,6 +475,195 @@ export default function Dashboard() {
                     </div>
                 )}
 
+                {/* BRIEFING TAB */}
+                {activeTab === 'briefing' && (
+                    <div className="space-y-4">
+                        {loadingBriefing ? (
+                            <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
+                                <div className="text-4xl mb-4 animate-pulse">📊</div>
+                                <p className="text-purple-400">{lang === 'ar' ? 'جاري إنشاء التقرير الأسبوعي...' : 'Generating weekly briefing...'}</p>
+                            </div>
+                        ) : briefing ? (
+                            <>
+                                <div className="bg-purple-900/20 rounded-xl p-6 border border-purple-800">
+                                    <h3 className="text-purple-400 font-medium mb-2">
+                                        📊 {lang === 'ar' ? 'التقرير الأسبوعي' : 'Weekly Briefing'}
+                                    </h3>
+                                    <p className="text-white text-lg font-medium">{briefing.headline}</p>
+                                </div>
+
+                                {briefing.top_priorities?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-yellow-400">
+                                            🎯 {lang === 'ar' ? 'أولويات الأسبوع' : 'Top Priorities'}
+                                        </h3>
+                                        {briefing.top_priorities.map((p: any, i: number) => (
+                                            <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span>{p.urgency === 'high' ? '🔴' : p.urgency === 'medium' ? '🟡' : '🟢'}</span>
+                                                    <p className="font-medium text-sm">{p.title}</p>
+                                                </div>
+                                                <p className="text-xs text-gray-400">{p.action}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {briefing.what_changed?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-blue-400">
+                                            🔄 {lang === 'ar' ? 'ما الذي تغير؟' : 'What Changed?'}
+                                        </h3>
+                                        {briefing.what_changed.map((c: string, i: number) => (
+                                            <div key={i} className="flex items-start gap-2 mb-2">
+                                                <span className="text-blue-400 mt-1">•</span>
+                                                <p className="text-sm text-gray-300">{c}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {briefing.next_week_focus?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-green-400">
+                                            🚀 {lang === 'ar' ? 'تركيز الأسبوع القادم' : 'Next Week Focus'}
+                                        </h3>
+                                        {briefing.next_week_focus.map((f: string, i: number) => (
+                                            <div key={i} className="flex items-start gap-2 mb-2">
+                                                <span className="text-green-400 mt-1">→</span>
+                                                <p className="text-sm text-gray-300">{f}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <button onClick={loadBriefing}
+                                    className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
+                                    🔄 {lang === 'ar' ? 'إنشاء تقرير جديد' : 'Generate New Briefing'}
+                                </button>
+                            </>
+                        ) : (
+                            <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
+                                <div className="text-4xl mb-4">📊</div>
+                                <h3 className="font-medium mb-2">
+                                    {lang === 'ar' ? 'التقرير الأسبوعي' : 'Weekly Briefing'}
+                                </h3>
+                                <p className="text-gray-500 text-sm mb-6">
+                                    {lang === 'ar' ? 'تقرير ذكي يلخص أسبوع شركتك' : 'AI-powered summary of your company week'}
+                                </p>
+                                <button onClick={loadBriefing}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all">
+                                    {lang === 'ar' ? 'إنشاء التقرير' : 'Generate Briefing'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* DECISIONS TAB */}
+                {activeTab === 'decisions' && (
+                    <div className="space-y-4">
+                        {(profile?.role === 'owner' || profile?.role === 'dept_head') && (
+                            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                <h3 className="font-medium mb-4">
+                                    ⚖️ {lang === 'ar' ? 'تسجيل قرار جديد' : 'Record New Decision'}
+                                </h3>
+                                <input type="text"
+                                    placeholder={lang === 'ar' ? 'عنوان القرار...' : 'Decision title...'}
+                                    value={newDecision.title}
+                                    onChange={e => setNewDecision(prev => ({ ...prev, title: e.target.value }))}
+                                    className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500" />
+                                <textarea
+                                    placeholder={lang === 'ar' ? 'لماذا تم اتخاذ هذا القرار؟ ما هي الأدلة؟' : 'Why was this decision made? What is the evidence?'}
+                                    value={newDecision.description}
+                                    onChange={e => setNewDecision(prev => ({ ...prev, description: e.target.value }))}
+                                    className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500 resize-none"
+                                    rows={3} />
+                                <button onClick={handleAddDecision} disabled={addingDecision || !newDecision.title}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all disabled:opacity-50">
+                                    {addingDecision ? '...' : lang === 'ar' ? 'تسجيل القرار' : 'Record Decision'}
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                            <h3 className="font-medium mb-4">
+                                {lang === 'ar' ? `القرارات (${decisions.length})` : `Decisions (${decisions.length})`}
+                            </h3>
+                            {decisions.length === 0 ? (
+                                <p className="text-gray-500 text-sm">
+                                    {lang === 'ar' ? 'لا توجد قرارات مسجلة بعد' : 'No decisions recorded yet'}
+                                </p>
+                            ) : (
+                                decisions.map((decision) => (
+                                    <div key={decision.id} className="bg-gray-800 rounded-xl p-4 mb-3 border border-gray-700">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <h4 className="font-medium text-white">{decision.title}</h4>
+                                            <span className={`text-xs px-2 py-1 rounded-full ${decision.status === 'active' ? 'bg-green-900 text-green-400' : 'bg-gray-700 text-gray-400'}`}>
+                                                {decision.status === 'active' ? (lang === 'ar' ? 'نشط' : 'Active') : (lang === 'ar' ? 'مكتمل' : 'Completed')}
+                                            </span>
+                                        </div>
+                                        {decision.description && (
+                                            <p className="text-gray-400 text-sm mb-2">{decision.description}</p>
+                                        )}
+                                        <p className="text-xs text-gray-500">
+                                            {new Date(decision.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
+                                        </p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* ALERTS TAB */}
+                {activeTab === 'alerts' && (
+                    <div className="space-y-4">
+                        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                            <h3 className="font-medium mb-4 text-red-400">
+                                🚨 {lang === 'ar' ? `التنبيهات النشطة (${alerts.length})` : `Active Alerts (${alerts.length})`}
+                            </h3>
+                            {alerts.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <div className="text-4xl mb-3">✅</div>
+                                    <p className="text-gray-500 text-sm">
+                                        {lang === 'ar' ? 'لا توجد تنبيهات نشطة' : 'No active alerts'}
+                                    </p>
+                                </div>
+                            ) : (
+                                alerts.map((alert) => (
+                                    <div key={alert.id} className={`rounded-xl p-4 mb-3 border ${severityColor(alert.severity)}`}>
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div>
+                                                <span className="text-xs opacity-70 mb-1 block">{alert.type}</span>
+                                                <h4 className="font-medium text-sm">{alert.title}</h4>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-xs px-2 py-0.5 rounded-full border ${severityColor(alert.severity)}`}>
+                                                    {severityLabel(alert.severity)}
+                                                </span>
+                                                {profile?.role === 'owner' && (
+                                                    <button onClick={() => handleResolveAlert(alert.id)}
+                                                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-gray-700">
+                                                        {lang === 'ar' ? 'حل' : 'Resolve'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {alert.description && (
+                                            <p className="text-xs opacity-80">{alert.description}</p>
+                                        )}
+                                        <p className="text-xs opacity-50 mt-2">
+                                            {new Date(alert.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
+                                        </p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* DOCUMENTS TAB */}
                 {activeTab === 'documents' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
@@ -414,9 +672,7 @@ export default function Dashboard() {
                                 <div className="text-center">
                                     {uploading ? <p className="text-purple-400">{tx.processing}</p> : (
                                         <>
-                                            <p className="text-gray-400 mb-1">
-                                                {lang === 'ar' ? 'اضغط لرفع ملف' : 'Click to upload file'}
-                                            </p>
+                                            <p className="text-gray-400 mb-1">{lang === 'ar' ? 'اضغط لرفع ملف' : 'Click to upload file'}</p>
                                             <p className="text-gray-600 text-sm">PDF, DOCX, TXT, XLSX, CSV, Code</p>
                                         </>
                                     )}
@@ -433,9 +689,7 @@ export default function Dashboard() {
                                     <div key={doc.id} className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0">
                                         <div>
                                             <p className="font-medium text-sm">{doc.name}</p>
-                                            <p className="text-xs text-gray-500">
-                                                {new Date(doc.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
-                                            </p>
+                                            <p className="text-xs text-gray-500">{new Date(doc.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <span className={`text-xs px-2 py-1 rounded-full ${doc.status === 'completed' ? 'bg-green-900 text-green-400' : 'bg-yellow-900 text-yellow-400'}`}>
@@ -443,7 +697,7 @@ export default function Dashboard() {
                                             </span>
                                             {canDelete(doc) && (
                                                 <button onClick={() => handleDelete(doc.id)}
-                                                    className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-800 hover:border-red-600 transition-colors">
+                                                    className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-800">
                                                     {tx.delete}
                                                 </button>
                                             )}
@@ -455,12 +709,11 @@ export default function Dashboard() {
                     </div>
                 )}
 
+                {/* TIMELINE TAB */}
                 {activeTab === 'timeline' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                            <h3 className="font-medium mb-6">
-                                📅 {lang === 'ar' ? 'تاريخ الشركة' : 'Company Timeline'}
-                            </h3>
+                            <h3 className="font-medium mb-6">📅 {lang === 'ar' ? 'تاريخ الشركة' : 'Company Timeline'}</h3>
                             {timeline.length === 0 ? (
                                 <p className="text-gray-500 text-sm">{tx.uploadFirst}</p>
                             ) : (
@@ -488,6 +741,7 @@ export default function Dashboard() {
                     </div>
                 )}
 
+                {/* TEAM TAB */}
                 {activeTab === 'team' && (
                     <div className="space-y-4">
                         {profile?.role === 'owner' && (
@@ -506,9 +760,7 @@ export default function Dashboard() {
                                 </div>
                                 {inviteCodes.length > 0 && (
                                     <div className="mt-4">
-                                        <p className="text-gray-400 text-sm mb-3">
-                                            {lang === 'ar' ? 'أكواد الدعوة:' : 'Invite Codes:'}
-                                        </p>
+                                        <p className="text-gray-400 text-sm mb-3">{lang === 'ar' ? 'أكواد الدعوة:' : 'Invite Codes:'}</p>
                                         {inviteCodes.slice(0, 5).map(code => (
                                             <div key={code.id} className="flex items-center justify-between bg-gray-800 rounded-lg p-3 mb-2">
                                                 <div>
