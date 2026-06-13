@@ -31,6 +31,9 @@ export default function Dashboard() {
     const [newDecision, setNewDecision] = useState({ title: '', description: '' })
     const [addingDecision, setAddingDecision] = useState(false)
     const router = useRouter()
+    const [rootCause, setRootCause] = useState<any>(null)
+    const [rootCauseQuery, setRootCauseQuery] = useState('')
+    const [loadingRootCause, setLoadingRootCause] = useState(false)
 
     const tx = t[lang]
     const isRTL = lang === 'ar'
@@ -121,6 +124,24 @@ export default function Dashboard() {
         const data = await res.json()
         if (data.briefing) setBriefing(data.briefing)
         setLoadingBriefing(false)
+    }
+
+
+    async function handleRootCause() {
+        if (!rootCauseQuery.trim() || !profile) return
+        setLoadingRootCause(true)
+        setRootCause(null)
+        const res = await fetch('/api/rootcause', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                company_id: profile.company_id,
+                event: rootCauseQuery
+            })
+        })
+        const data = await res.json()
+        if (data.analysis) setRootCause(data.analysis)
+        setLoadingRootCause(false)
     }
 
     async function handleAddDecision() {
@@ -245,7 +266,8 @@ export default function Dashboard() {
         return severity === 'high' ? 'High' : severity === 'medium' ? 'Medium' : 'Low'
     }
 
-    const tabs = ['chat', 'intelligence', 'briefing', 'decisions', 'alerts', 'documents', 'timeline', 'team']
+
+    const tabs = ['chat', 'intelligence', 'briefing', 'decisions', 'alerts', 'rootcause', 'documents', 'timeline', 'team']
 
     const tabLabel = (tab: string) => {
         const labels: any = {
@@ -257,6 +279,7 @@ export default function Dashboard() {
             documents: `📄 ${tx.documents}`,
             timeline: `📅 ${lang === 'ar' ? 'التايم لاين' : 'Timeline'}`,
             team: `👥 ${tx.team}`,
+            rootcause: `🔍 ${lang === 'ar' ? 'تحليل الأسباب' : 'Root Cause'}`,
         }
         return labels[tab]
     }
@@ -660,6 +683,99 @@ export default function Dashboard() {
                                 ))
                             )}
                         </div>
+                    </div>
+                )}
+
+
+
+                {activeTab === 'rootcause' && (
+                    <div className="space-y-4">
+                        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                            <h3 className="font-medium mb-4">
+                                🔍 {lang === 'ar' ? 'محرك تحليل الأسباب الجذرية' : 'Root Cause Analysis Engine'}
+                            </h3>
+                            <p className="text-gray-400 text-sm mb-4">
+                                {lang === 'ar' ? 'اسأل: ليه حصلت كذا؟ وهيشرحلك السبب الحقيقي بالأدلة' : 'Ask: Why did X happen? Get evidence-backed root cause analysis'}
+                            </p>
+                            <textarea
+                                value={rootCauseQuery}
+                                onChange={e => setRootCauseQuery(e.target.value)}
+                                placeholder={lang === 'ar' ? 'مثال: ليه نزلت المبيعات الشهر ده؟' : 'Example: Why did sales drop this month?'}
+                                className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500 resize-none"
+                                rows={3}
+                            />
+                            <button onClick={handleRootCause} disabled={loadingRootCause || !rootCauseQuery.trim()}
+                                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all disabled:opacity-50">
+                                {loadingRootCause ? (lang === 'ar' ? 'جاري التحليل...' : 'Analyzing...') : (lang === 'ar' ? 'حلل الأسباب' : 'Analyze')}
+                            </button>
+                        </div>
+
+                        {rootCause && (
+                            <>
+                                <div className="bg-red-900/20 rounded-xl p-6 border border-red-800">
+                                    <h3 className="text-red-400 font-medium mb-2">
+                                        ⚡ {lang === 'ar' ? 'السبب المباشر' : 'Immediate Cause'}
+                                    </h3>
+                                    <p className="text-gray-200">{rootCause.immediate_cause}</p>
+                                </div>
+
+                                {rootCause.root_causes?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-orange-400">
+                                            🌳 {lang === 'ar' ? 'الأسباب الجذرية' : 'Root Causes'}
+                                        </h3>
+                                        {rootCause.root_causes.map((rc: any, i: number) => (
+                                            <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className={`text-xs px-2 py-1 rounded-full ${rc.depth === 'systemic' ? 'bg-red-900 text-red-400' : rc.depth === 'deep' ? 'bg-orange-900 text-orange-400' : 'bg-yellow-900 text-yellow-400'}`}>
+                                                        {rc.depth}
+                                                    </span>
+                                                    <p className="font-medium text-sm">{rc.cause}</p>
+                                                </div>
+                                                <p className="text-xs text-gray-400">{rc.evidence}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {rootCause.chain_of_events?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-blue-400">
+                                            🔗 {lang === 'ar' ? 'سلسلة الأحداث' : 'Chain of Events'}
+                                        </h3>
+                                        {rootCause.chain_of_events.map((step: string, i: number) => (
+                                            <div key={i} className="flex items-start gap-3 mb-3">
+                                                <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                                    {i + 1}
+                                                </div>
+                                                <p className="text-sm text-gray-300 mt-0.5">{step}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {rootCause.prevention_recommendations?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-green-400">
+                                            🛡️ {lang === 'ar' ? 'توصيات للوقاية' : 'Prevention Recommendations'}
+                                        </h3>
+                                        {rootCause.prevention_recommendations.map((rec: string, i: number) => (
+                                            <div key={i} className="flex items-start gap-2 mb-2">
+                                                <span className="text-green-400 mt-1">✓</span>
+                                                <p className="text-sm text-gray-300">{rec}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex items-center gap-3">
+                                    <span className={`text-sm font-medium ${rootCause.confidence_level === 'high' ? 'text-green-400' : rootCause.confidence_level === 'medium' ? 'text-yellow-400' : 'text-red-400'}`}>
+                                        {lang === 'ar' ? 'مستوى الثقة:' : 'Confidence:'} {rootCause.confidence_level}
+                                    </span>
+                                    <p className="text-xs text-gray-500">{rootCause.confidence_reason}</p>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 
