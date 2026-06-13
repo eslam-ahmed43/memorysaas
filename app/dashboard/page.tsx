@@ -600,6 +600,56 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                 )}
+                                {intelligence.critique && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-orange-800">
+                                        <h3 className="font-medium mb-4 text-orange-400">
+                                            🤖 {lang === 'ar' ? 'تحدي DeepSeek' : 'DeepSeek Challenge'}
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mb-4">
+                                            {lang === 'ar' ? 'DeepSeek يراجع ويتحدى تحليل Gemini' : 'DeepSeek reviewing and challenging Gemini analysis'}
+                                        </p>
+
+                                        {intelligence.critique.challenges?.length > 0 && (
+                                            <div className="mb-4">
+                                                <p className="text-orange-400 text-sm font-medium mb-2">
+                                                    {lang === 'ar' ? 'نقاط التحدي:' : 'Challenges:'}
+                                                </p>
+                                                {intelligence.critique.challenges.map((c: any, i: number) => (
+                                                    <div key={i} className="bg-orange-900/20 rounded-lg p-3 mb-2 border border-orange-800">
+                                                        <p className="font-medium text-sm text-orange-400">{c.point}</p>
+                                                        <p className="text-xs text-gray-400 mt-1">{c.reasoning}</p>
+                                                        {c.alternative && <p className="text-xs text-blue-400 mt-1">→ {c.alternative}</p>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {intelligence.critique.blind_spots?.length > 0 && (
+                                            <div className="mb-4">
+                                                <p className="text-yellow-400 text-sm font-medium mb-2">
+                                                    {lang === 'ar' ? 'نقاط عمياء:' : 'Blind Spots:'}
+                                                </p>
+                                                {intelligence.critique.blind_spots.map((spot: string, i: number) => (
+                                                    <div key={i} className="flex items-start gap-2 mb-1">
+                                                        <span className="text-yellow-400">⚠️</span>
+                                                        <p className="text-xs text-gray-300">{spot}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-700">
+                                            <span className="text-xs text-gray-400">
+                                                {lang === 'ar' ? 'الثقة المراجعة:' : 'Revised confidence:'}
+                                                <span className={`ml-1 font-medium ${intelligence.critique.revised_confidence === 'high' ? 'text-green-400' : intelligence.critique.revised_confidence === 'medium' ? 'text-yellow-400' : 'text-red-400'}`}>
+                                                    {intelligence.critique.revised_confidence}
+                                                </span>
+                                            </span>
+                                            <p className="text-xs text-gray-500">{intelligence.critique.final_verdict}</p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <button onClick={loadIntelligence}
                                     className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
                                     🔄 {tx.refresh}
