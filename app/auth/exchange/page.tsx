@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createBrowserClient } from '@supabase/ssr'
 
 function ExchangeContent() {
     const router = useRouter()
@@ -9,28 +9,25 @@ function ExchangeContent() {
 
     useEffect(() => {
         async function exchange() {
-            const code = searchParams.get('code')
-            if (!code) {
-                router.push('/login')
+            const supabase = createBrowserClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            )
+
+            const { data: { session } } = await supabase.auth.getSession()
+
+            if (session?.user) {
+                const res = await fetch(`/api/profile?user_id=${session.user.id}`)
+                const profile = await res.json()
+                if (profile.profile) {
+                    router.push('/dashboard')
+                } else {
+                    router.push('/onboarding')
+                }
                 return
             }
 
-            const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-
-            if (error || !data.user) {
-                console.error('Exchange error:', error?.message)
-                router.push('/login?error=auth')
-                return
-            }
-
-            const res = await fetch(`/api/profile?user_id=${data.user.id}`)
-            const profile = await res.json()
-
-            if (profile.profile) {
-                router.push('/dashboard')
-            } else {
-                router.push('/onboarding')
-            }
+            router.push('/login?error=auth')
         }
 
         exchange()
