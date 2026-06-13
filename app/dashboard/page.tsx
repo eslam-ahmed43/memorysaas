@@ -34,6 +34,8 @@ export default function Dashboard() {
     const [rootCause, setRootCause] = useState<any>(null)
     const [rootCauseQuery, setRootCauseQuery] = useState('')
     const [loadingRootCause, setLoadingRootCause] = useState(false)
+    const [whatChanged, setWhatChanged] = useState<any>(null)
+    const [loadingWhatChanged, setLoadingWhatChanged] = useState(false)
 
     const tx = t[lang]
     const isRTL = lang === 'ar'
@@ -111,6 +113,20 @@ export default function Dashboard() {
         const data = await res.json()
         if (data.intelligence) setIntelligence(data.intelligence)
         setLoadingIntelligence(false)
+    }
+
+
+    async function loadWhatChanged() {
+        if (!profile) return
+        setLoadingWhatChanged(true)
+        const res = await fetch('/api/whatchanged', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: profile.company_id })
+        })
+        const data = await res.json()
+        if (data.analysis) setWhatChanged(data.analysis)
+        setLoadingWhatChanged(false)
     }
 
     async function loadBriefing() {
@@ -267,7 +283,7 @@ export default function Dashboard() {
     }
 
 
-    const tabs = ['chat', 'intelligence', 'briefing', 'decisions', 'alerts', 'rootcause', 'documents', 'timeline', 'team']
+    const tabs = ['chat', 'intelligence', 'briefing', 'decisions', 'alerts', 'rootcause', 'whatchanged', 'documents', 'timeline', 'team']
 
     const tabLabel = (tab: string) => {
         const labels: any = {
@@ -280,6 +296,7 @@ export default function Dashboard() {
             timeline: `📅 ${lang === 'ar' ? 'التايم لاين' : 'Timeline'}`,
             team: `👥 ${tx.team}`,
             rootcause: `🔍 ${lang === 'ar' ? 'تحليل الأسباب' : 'Root Cause'}`,
+            whatchanged: `🔄 ${lang === 'ar' ? 'ما الذي تغير' : 'What Changed'}`,
         }
         return labels[tab]
     }
@@ -375,6 +392,110 @@ export default function Dashboard() {
                                         <p className="text-sm text-gray-400">{lang === 'ar' ? 'ج' : 'A'}: {c.answer.substring(0, 150)}...</p>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+
+                {activeTab === 'whatchanged' && (
+                    <div className="space-y-4">
+                        {loadingWhatChanged ? (
+                            <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
+                                <div className="text-4xl mb-4 animate-pulse">🔄</div>
+                                <p className="text-purple-400">{lang === 'ar' ? 'جاري تحليل التغييرات...' : 'Analyzing changes...'}</p>
+                            </div>
+                        ) : whatChanged ? (
+                            <>
+                                <div className="bg-purple-900/20 rounded-xl p-6 border border-purple-800">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-purple-400 font-medium">
+                                            🔄 {lang === 'ar' ? 'ملخص التغييرات' : 'Changes Summary'}
+                                        </h3>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs text-gray-400">
+                                                {lang === 'ar' ? 'سرعة التغيير:' : 'Change velocity:'}
+                                                <span className={`ml-1 font-medium ${whatChanged.change_velocity === 'high' ? 'text-red-400' : whatChanged.change_velocity === 'medium' ? 'text-yellow-400' : 'text-green-400'}`}>
+                                                    {whatChanged.change_velocity}
+                                                </span>
+                                            </span>
+                                            <span className="text-xs text-gray-400">
+                                                {lang === 'ar' ? 'الاستقرار:' : 'Stability:'}
+                                                <span className="ml-1 font-medium text-purple-400">{whatChanged.stability_score}%</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p className="text-gray-200">{whatChanged.summary}</p>
+                                </div>
+
+                                {whatChanged.significant_changes?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-blue-400">
+                                            📌 {lang === 'ar' ? 'التغييرات المهمة' : 'Significant Changes'}
+                                        </h3>
+                                        {whatChanged.significant_changes.map((change: any, i: number) => (
+                                            <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span>{change.impact === 'positive' ? '✅' : change.impact === 'negative' ? '❌' : '➡️'}</span>
+                                                    <p className="font-medium text-sm">{change.title}</p>
+                                                    <span className="text-xs text-gray-500 ml-auto">{change.area}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-400">{change.description}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {whatChanged.trends?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-green-400">
+                                            📈 {lang === 'ar' ? 'الاتجاهات' : 'Trends'}
+                                        </h3>
+                                        {whatChanged.trends.map((trend: any, i: number) => (
+                                            <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span>{trend.direction === 'improving' ? '📈' : trend.direction === 'declining' ? '📉' : '➡️'}</span>
+                                                    <p className="font-medium text-sm">{trend.trend}</p>
+                                                </div>
+                                                <p className="text-xs text-gray-400">{trend.evidence}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {whatChanged.anomalies?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-red-400">
+                                            ⚠️ {lang === 'ar' ? 'أنماط غير عادية' : 'Anomalies Detected'}
+                                        </h3>
+                                        {whatChanged.anomalies.map((anomaly: any, i: number) => (
+                                            <div key={i} className="bg-red-900/20 rounded-lg p-4 mb-3 border border-red-800">
+                                                <p className="font-medium text-sm text-red-400 mb-1">{anomaly.anomaly}</p>
+                                                <p className="text-xs text-gray-400 mb-2">{anomaly.explanation}</p>
+                                                <p className="text-xs text-yellow-400">→ {anomaly.action_needed}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <button onClick={loadWhatChanged}
+                                    className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
+                                    🔄 {lang === 'ar' ? 'تحديث التحليل' : 'Refresh Analysis'}
+                                </button>
+                            </>
+                        ) : (
+                            <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
+                                <div className="text-4xl mb-4">🔄</div>
+                                <h3 className="font-medium mb-2">
+                                    {lang === 'ar' ? 'محرك التغييرات' : 'What Changed Engine'}
+                                </h3>
+                                <p className="text-gray-500 text-sm mb-6">
+                                    {lang === 'ar' ? 'يكتشف التغييرات المهمة في شركتك تلقائياً' : 'Automatically detects meaningful changes in your company'}
+                                </p>
+                                <button onClick={loadWhatChanged}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all">
+                                    {lang === 'ar' ? 'اكتشف التغييرات' : 'Detect Changes'}
+                                </button>
                             </div>
                         )}
                     </div>
