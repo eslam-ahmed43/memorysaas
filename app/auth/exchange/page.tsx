@@ -28,14 +28,7 @@ function ExchangeContent() {
                 }
             }
 
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session?.user) {
-                const res = await fetch(`/api/profile?user_id=${session.user.id}`)
-                const profile = await res.json()
-                router.push(profile.profile ? '/dashboard' : '/onboarding')
-            } else {
-                router.push('/login?error=no-session')
-            }
+            router.push('/login')
         }
 
         exchange()
