@@ -37,12 +37,12 @@ export default function Home() {
             provider: 'google',
             options: {
                 redirectTo: `https://memorysaas-qjg3.vercel.app/auth/exchange`,
+                skipBrowserRedirect: false,
             }
         })
         if (error) setError(error.message)
         setGoogleLoading(false)
     }
-
 
     async function handleSubmit() {
         setLoading(true)

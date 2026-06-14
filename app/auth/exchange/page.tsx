@@ -7,40 +7,21 @@ function ExchangeContent() {
     const router = useRouter()
 
     useEffect(() => {
-        async function handleAuth() {
-            const { data: { session } } = await supabase.auth.getSession()
-
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
             if (session?.user) {
                 const res = await fetch(`/api/profile?user_id=${session.user.id}`)
                 const data = await res.json()
-                if (data.profile) {
-                    router.push('/dashboard')
-                } else {
-                    router.push('/onboarding')
-                }
-                return
-            }
-
-            const hash = window.location.hash
-            if (hash && hash.includes('access_token')) {
+                router.push(data.profile ? '/dashboard' : '/onboarding')
+            } else {
                 supabase.auth.onAuthStateChange(async (event, session) => {
-                    if (event === 'SIGNED_IN' && session?.user) {
+                    if (session?.user) {
                         const res = await fetch(`/api/profile?user_id=${session.user.id}`)
                         const data = await res.json()
-                        if (data.profile) {
-                            router.push('/dashboard')
-                        } else {
-                            router.push('/onboarding')
-                        }
+                        router.push(data.profile ? '/dashboard' : '/onboarding')
                     }
                 })
-                return
             }
-
-            router.push('/login')
-        }
-
-        handleAuth()
+        })
     }, [])
 
     return (
