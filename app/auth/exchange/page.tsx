@@ -7,25 +7,34 @@ function ExchangeContent() {
     const router = useRouter()
 
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                if (session?.user) {
-                    subscription.unsubscribe()
-                    const res = await fetch(`/api/profile?user_id=${session.user.id}`)
-                    const data = await res.json()
-                    router.push(data.profile ? '/dashboard' : '/onboarding')
-                }
-            }
-        )
-
-        const timeout = setTimeout(() => {
-            router.push('/login?error=timeout')
-        }, 8000)
-
-        return () => {
-            subscription.unsubscribe()
-            clearTimeout(timeout)
+        async function handleSession(userId: string) {
+            const res = await fetch(`/api/profile?user_id=${userId}`)
+            const data = await res.json()
+            router.push(data.profile ? '/dashboard' : '/onboarding')
         }
+
+        async function init() {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user) {
+                handleSession(session.user.id)
+                return
+            }
+
+            const { data: { subscription } } = supabase.auth.onAuthStateChange(
+                async (event, session) => {
+                    if (session?.user) {
+                        subscription.unsubscribe()
+                        handleSession(session.user.id)
+                    }
+                }
+            )
+
+            setTimeout(() => {
+                router.push('/login?error=timeout')
+            }, 10000)
+        }
+
+        init()
     }, [])
 
     return (
@@ -33,6 +42,7 @@ function ExchangeContent() {
             <div className="text-center">
                 <div className="text-4xl mb-4 animate-pulse">🧠</div>
                 <p className="text-white text-lg font-medium">Signing you in...</p>
+                <p className="text-gray-500 text-sm mt-2">Please wait</p>
             </div>
         </div>
     )

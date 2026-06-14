@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -13,25 +13,6 @@ export default function Home() {
     const [error, setError] = useState('')
     const router = useRouter()
 
-    useEffect(() => {
-        const hash = window.location.hash
-        if (hash && hash.includes('access_token')) {
-            supabase.auth.getSession().then(async ({ data: { session } }) => {
-                if (session?.user) {
-                    const res = await fetch(`/api/profile?user_id=${session.user.id}`)
-                    const data = await res.json()
-                    if (data.profile) {
-                        router.push('/dashboard')
-                    } else {
-                        router.push('/onboarding')
-                    }
-                }
-            })
-        }
-    }, [])
-
-
-
     async function handleGoogleLogin() {
         setGoogleLoading(true)
         const { error } = await supabase.auth.signInWithOAuth({
@@ -43,7 +24,6 @@ export default function Home() {
         if (error) setError(error.message)
         setGoogleLoading(false)
     }
-
 
     async function handleSubmit() {
         setLoading(true)
