@@ -31,13 +31,13 @@ export default function Home() {
     }, [])
 
 
+
     async function handleGoogleLogin() {
         setGoogleLoading(true)
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: `https://memorysaas-qjg3.vercel.app/auth/exchange`,
-                skipBrowserRedirect: false,
             }
         })
         if (error) setError(error.message)

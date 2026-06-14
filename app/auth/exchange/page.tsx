@@ -7,28 +7,40 @@ function ExchangeContent() {
     const router = useRouter()
 
     useEffect(() => {
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            if (session?.user) {
-                const res = await fetch(`/api/profile?user_id=${session.user.id}`)
-                const data = await res.json()
-                router.push(data.profile ? '/dashboard' : '/onboarding')
-            } else {
-                supabase.auth.onAuthStateChange(async (event, session) => {
-                    if (session?.user) {
-                        const res = await fetch(`/api/profile?user_id=${session.user.id}`)
-                        const data = await res.json()
-                        router.push(data.profile ? '/dashboard' : '/onboarding')
+        let timeout: NodeJS.Timeout
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                if (event === 'SIGNED_IN' && session?.user) {
+                    clearTimeout(timeout)
+                    const res = await fetch(`/api/profile?user_id=${session.user.id}`)
+                    const data = await res.json()
+                    if (data.profile) {
+                        router.push('/dashboard')
+                    } else {
+                        router.push('/onboarding')
                     }
-                })
+                }
             }
-        })
+        )
+
+        timeout = setTimeout(() => {
+            subscription.unsubscribe()
+            router.push('/login?error=timeout')
+        }, 10000)
+
+        return () => {
+            clearTimeout(timeout)
+            subscription.unsubscribe()
+        }
     }, [])
 
     return (
         <div className="min-h-screen bg-gray-950 flex items-center justify-center">
             <div className="text-center">
                 <div className="text-4xl mb-4 animate-pulse">🧠</div>
-                <p className="text-white">Authenticating...</p>
+                <p className="text-white text-lg font-medium">Authenticating...</p>
+                <p className="text-gray-500 text-sm mt-2">Please wait</p>
             </div>
         </div>
     )
