@@ -1,40 +1,44 @@
 'use client'
 import { useEffect, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 function ExchangeContent() {
     const router = useRouter()
+    const searchParams = useSearchParams()
 
     useEffect(() => {
-        async function handleSession(userId: string) {
-            const res = await fetch(`/api/profile?user_id=${userId}`)
-            const data = await res.json()
-            router.push(data.profile ? '/dashboard' : '/onboarding')
-        }
+        async function exchange() {
+            const code = searchParams.get('code')
 
-        async function init() {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session?.user) {
-                handleSession(session.user.id)
-                return
+            if (code) {
+                const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
+                if (error) {
+                    console.error('Exchange error:', error.message)
+                    router.push('/login?error=oauth')
+                    return
+                }
+
+                if (data.session?.user) {
+                    const res = await fetch(`/api/profile?user_id=${data.session.user.id}`)
+                    const profile = await res.json()
+                    router.push(profile.profile ? '/dashboard' : '/onboarding')
+                    return
+                }
             }
 
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(
-                async (event, session) => {
-                    if (session?.user) {
-                        subscription.unsubscribe()
-                        handleSession(session.user.id)
-                    }
-                }
-            )
-
-            setTimeout(() => {
-                router.push('/login?error=timeout')
-            }, 10000)
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user) {
+                const res = await fetch(`/api/profile?user_id=${session.user.id}`)
+                const profile = await res.json()
+                router.push(profile.profile ? '/dashboard' : '/onboarding')
+            } else {
+                router.push('/login?error=no-session')
+            }
         }
 
-        init()
+        exchange()
     }, [])
 
     return (
