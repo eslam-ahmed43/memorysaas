@@ -7,31 +7,24 @@ function ExchangeContent() {
     const router = useRouter()
 
     useEffect(() => {
-        let timeout: NodeJS.Timeout
-
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
-                if (event === 'SIGNED_IN' && session?.user) {
-                    clearTimeout(timeout)
+                if (session?.user) {
+                    subscription.unsubscribe()
                     const res = await fetch(`/api/profile?user_id=${session.user.id}`)
                     const data = await res.json()
-                    if (data.profile) {
-                        router.push('/dashboard')
-                    } else {
-                        router.push('/onboarding')
-                    }
+                    router.push(data.profile ? '/dashboard' : '/onboarding')
                 }
             }
         )
 
-        timeout = setTimeout(() => {
-            subscription.unsubscribe()
+        const timeout = setTimeout(() => {
             router.push('/login?error=timeout')
-        }, 10000)
+        }, 8000)
 
         return () => {
-            clearTimeout(timeout)
             subscription.unsubscribe()
+            clearTimeout(timeout)
         }
     }, [])
 
@@ -39,8 +32,7 @@ function ExchangeContent() {
         <div className="min-h-screen bg-gray-950 flex items-center justify-center">
             <div className="text-center">
                 <div className="text-4xl mb-4 animate-pulse">🧠</div>
-                <p className="text-white text-lg font-medium">Authenticating...</p>
-                <p className="text-gray-500 text-sm mt-2">Please wait</p>
+                <p className="text-white text-lg font-medium">Signing you in...</p>
             </div>
         </div>
     )
