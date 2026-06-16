@@ -10,12 +10,24 @@ function ExchangeContent() {
     useEffect(() => {
         async function exchange() {
             const code = searchParams.get('code')
+            console.log('=== EXCHANGE PAGE ===')
+            console.log('Code:', code)
+
+            // Check localStorage
+            const allKeys = Object.keys(localStorage)
+            console.log('localStorage keys:', allKeys)
+            allKeys.forEach(key => {
+                if (key.includes('supabase') || key.includes('pkce') || key.includes('code')) {
+                    console.log(key, ':', localStorage.getItem(key)?.substring(0, 50))
+                }
+            })
 
             if (code) {
                 const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+                console.log('Exchange error:', error?.message)
+                console.log('Exchange user:', data?.session?.user?.email)
 
                 if (error) {
-                    console.error('Exchange error:', error.message)
                     router.push('/login?error=oauth')
                     return
                 }
@@ -39,7 +51,6 @@ function ExchangeContent() {
             <div className="text-center">
                 <div className="text-4xl mb-4 animate-pulse">🧠</div>
                 <p className="text-white text-lg font-medium">Signing you in...</p>
-                <p className="text-gray-500 text-sm mt-2">Please wait</p>
             </div>
         </div>
     )
