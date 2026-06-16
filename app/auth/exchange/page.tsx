@@ -1,69 +1,35 @@
 'use client'
-import { useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 
-function ExchangeContent() {
-    const router = useRouter()
-    const searchParams = useSearchParams()
+import { useEffect } from 'react'
 
+export default function ExchangePage() {
     useEffect(() => {
-        async function exchange() {
-            const code = searchParams.get('code')
-            console.log('=== EXCHANGE PAGE ===')
-            console.log('Code:', code)
+        async function test() {
+            console.log('========== OAUTH DEBUG ==========')
+            console.log('FULL URL:', window.location.href)
+            console.log('SEARCH:', window.location.search)
+            console.log('HASH:', window.location.hash)
 
-            // Check localStorage
-            const allKeys = Object.keys(localStorage)
-            console.log('localStorage keys:', allKeys)
-            allKeys.forEach(key => {
-                if (key.includes('supabase') || key.includes('pkce') || key.includes('code')) {
-                    console.log(key, ':', localStorage.getItem(key)?.substring(0, 50))
-                }
-            })
+            const params = new URL(window.location.href).searchParams
 
-            if (code) {
-                const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-                console.log('Exchange error:', error?.message)
-                console.log('Exchange user:', data?.session?.user?.email)
-
-                if (error) {
-                    router.push('/login?error=oauth')
-                    return
-                }
-
-                if (data.session?.user) {
-                    const res = await fetch(`/api/profile?user_id=${data.session.user.id}`)
-                    const profile = await res.json()
-                    router.push(profile.profile ? '/dashboard' : '/onboarding')
-                    return
-                }
-            }
-
-            router.push('/login')
+            console.log('CODE:', params.get('code'))
+            console.log('ERROR:', params.get('error'))
+            console.log('ERROR DESC:', params.get('error_description'))
         }
 
-        exchange()
+        test()
     }, [])
 
     return (
-        <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-            <div className="text-center">
-                <div className="text-4xl mb-4 animate-pulse">🧠</div>
-                <p className="text-white text-lg font-medium">Signing you in...</p>
-            </div>
+        <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            background: '#111',
+            color: 'white'
+        }}>
+            Debugging OAuth...
         </div>
-    )
-}
-
-export default function Exchange() {
-    return (
-        <Suspense fallback={
-            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-                <p className="text-white">Loading...</p>
-            </div>
-        }>
-            <ExchangeContent />
-        </Suspense>
     )
 }
