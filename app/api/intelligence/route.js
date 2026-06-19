@@ -1,6 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { generateAnswer } from '@/lib/gemini'
-import { deepseekCritique } from '@/lib/deepseek'
 import { NextResponse } from 'next/server'
 
 const intelligenceRequests = new Map()
@@ -30,7 +29,6 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Invalid data' }, { status: 400 })
         }
 
-        // Check cache first (unless force_refresh)
         if (!force_refresh) {
             const { data: cached } = await supabase
                 .from('briefings')
@@ -45,11 +43,7 @@ export async function POST(request) {
                 const cacheAge = Date.now() - new Date(cached.cache_updated_at).getTime()
                 const oneHour = 60 * 60 * 1000
                 if (cacheAge < oneHour) {
-                    return NextResponse.json({
-                        success: true,
-                        intelligence: cached.intelligence_cache,
-                        from_cache: true
-                    })
+                    return NextResponse.json({ success: true, intelligence: cached.intelligence_cache, from_cache: true })
                 }
             }
         }
@@ -73,40 +67,39 @@ export async function POST(request) {
         const isArabic = companyRes.data?.language !== 'en'
         const lang = isArabic ? 'Arabic' : 'English'
 
-        const companyContext = `
-Company: ${companyRes.data?.name}
-Team size: ${members.length}
-Documents: ${documents.length}
-Active Alerts: ${alerts.length}
-Decisions made: ${decisions.length}
-
-Timeline Events:
-${timeline.map(e => `- ${e.title}: ${e.description}`).join('\n') || 'None'}
-
-Recent Decisions:
-${decisions.map(d => `- ${d.title} (${d.status}): ${d.description || ''}`).join('\n') || 'None'}
-
-Active Alerts:
-${alerts.map(a => `- [${a.severity}] ${a.title}`).join('\n') || 'None'}
-
-Recent Questions asked:
-${conversations.map(c => `- ${c.question}`).join('\n') || 'None'}
-`
-
-        // Calculate scores based on data (deterministic - not AI)
         const knowledgeScore = Math.min(100, Math.round((documents.length * 10) + (timeline.length * 3)))
         const teamScore = Math.min(100, Math.round(members.length * 20))
         const activityScore = Math.min(100, Math.round((conversations.length * 5) + (decisions.length * 10)))
         const overallScore = Math.round((knowledgeScore + teamScore + activityScore) / 3)
 
-        const geminiPrompt = `You are a professional AI executive consultant. Analyze the following company data and provide an accurate executive report in ${lang} only.
+        const companyContext = `
+Company: ${companyRes.data?.name}
+Team: ${members.length} members
+Documents: ${documents.length}
+Active Alerts: ${alerts.length}
+Decisions: ${decisions.length}
+
+Timeline:
+${timeline.map(e => `- ${e.title}: ${e.description}`).join('\n') || 'None'}
+
+Decisions:
+${decisions.map(d => `- ${d.title} (${d.status}): ${d.description || ''}`).join('\n') || 'None'}
+
+Alerts:
+${alerts.map(a => `- [${a.severity}] ${a.title}`).join('\n') || 'None'}
+
+Recent Questions:
+${conversations.map(c => `- ${c.question}`).join('\n') || 'None'}
+`
+
+        const prompt = `You are a professional AI executive consultant. Analyze this company data and provide an accurate executive report in ${lang} only.
 
 ${companyContext}
 
-CRITICAL RULES:
+RULES:
 - Respond ONLY in ${lang}
-- Be specific and evidence-based, not generic
-- Base analysis ONLY on the data provided above
+- Be specific and evidence-based
+- Base analysis ONLY on the data provided
 - Return JSON only, no extra text
 
 {
@@ -117,35 +110,17 @@ CRITICAL RULES:
   "summary": "..."
 }`
 
-        const geminiResponse = await generateAnswer(geminiPrompt)
-        const geminiClean = geminiResponse.replace(/```json|```/g, '').trim()
-        const geminiAnalysis = JSON.parse(geminiClean)
-
-        // Add deterministic scores
-        geminiAnalysis.scores = {
-            knowledge_score: knowledgeScore,
-            team_score: teamScore,
-            activity_score: activityScore,
-            overall_score: overallScore
-        }
-
-        // DeepSeek critique
-        let critique = null
-        try {
-            critique = await deepseekCritique(geminiAnalysis, companyContext)
-            console.log('DeepSeek critique succeeded ✅')
-        } catch (e) {
-            console.error('DeepSeek critique failed:', e.message)
-        }
+        const response = await generateAnswer(prompt)
+        const clean = response.replace(/```json|```/g, '').trim()
+        const analysis = JSON.parse(clean)
 
         const intelligence = {
-            ...geminiAnalysis,
-            critique,
-            pipeline: critique ? 'gemini-deepseek-adversarial' : 'gemini-only',
+            ...analysis,
+            scores: { knowledge_score: knowledgeScore, team_score: teamScore, activity_score: activityScore, overall_score: overallScore },
+            pipeline: 'gemini-3.5-flash',
             generated_at: new Date().toISOString()
         }
 
-        // Save to cache
         const { data: existing } = await supabase
             .from('briefings')
             .select('id')
@@ -155,19 +130,9 @@ CRITICAL RULES:
             .single()
 
         if (existing) {
-            await supabase
-                .from('briefings')
-                .update({ intelligence_cache: intelligence, cache_updated_at: new Date().toISOString() })
-                .eq('id', existing.id)
+            await supabase.from('briefings').update({ intelligence_cache: intelligence, cache_updated_at: new Date().toISOString() }).eq('id', existing.id)
         } else {
-            await supabase
-                .from('briefings')
-                .insert({
-                    company_id,
-                    type: 'intelligence',
-                    intelligence_cache: intelligence,
-                    cache_updated_at: new Date().toISOString()
-                })
+            await supabase.from('briefings').insert({ company_id, type: 'intelligence', intelligence_cache: intelligence, cache_updated_at: new Date().toISOString() })
         }
 
         return NextResponse.json({ success: true, intelligence, from_cache: false })

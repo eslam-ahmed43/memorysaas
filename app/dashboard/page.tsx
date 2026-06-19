@@ -30,12 +30,12 @@ export default function Dashboard() {
     const [lang, setLang] = useState<'ar' | 'en'>('en')
     const [newDecision, setNewDecision] = useState({ title: '', description: '' })
     const [addingDecision, setAddingDecision] = useState(false)
-    const router = useRouter()
     const [rootCause, setRootCause] = useState<any>(null)
     const [rootCauseQuery, setRootCauseQuery] = useState('')
     const [loadingRootCause, setLoadingRootCause] = useState(false)
     const [whatChanged, setWhatChanged] = useState<any>(null)
     const [loadingWhatChanged, setLoadingWhatChanged] = useState(false)
+    const router = useRouter()
 
     const tx = t[lang]
     const isRTL = lang === 'ar'
@@ -102,31 +102,17 @@ export default function Dashboard() {
         if (data.alerts) setAlerts(data.alerts)
     }
 
-    async function loadIntelligence() {
+    async function loadIntelligence(forceRefresh = false) {
         if (!profile) return
         setLoadingIntelligence(true)
         const res = await fetch('/api/intelligence', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_id: profile.company_id })
+            body: JSON.stringify({ company_id: profile.company_id, force_refresh: forceRefresh })
         })
         const data = await res.json()
         if (data.intelligence) setIntelligence(data.intelligence)
         setLoadingIntelligence(false)
-    }
-
-
-    async function loadWhatChanged() {
-        if (!profile) return
-        setLoadingWhatChanged(true)
-        const res = await fetch('/api/whatchanged', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_id: profile.company_id })
-        })
-        const data = await res.json()
-        if (data.analysis) setWhatChanged(data.analysis)
-        setLoadingWhatChanged(false)
     }
 
     async function loadBriefing() {
@@ -142,36 +128,13 @@ export default function Dashboard() {
         setLoadingBriefing(false)
     }
 
-
-    async function handleRootCause() {
-        if (!rootCauseQuery.trim() || !profile) return
-        setLoadingRootCause(true)
-        setRootCause(null)
-        const res = await fetch('/api/rootcause', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                company_id: profile.company_id,
-                event: rootCauseQuery
-            })
-        })
-        const data = await res.json()
-        if (data.analysis) setRootCause(data.analysis)
-        setLoadingRootCause(false)
-    }
-
     async function handleAddDecision() {
         if (!newDecision.title.trim() || !profile) return
         setAddingDecision(true)
         const res = await fetch('/api/decisions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                company_id: profile.company_id,
-                title: newDecision.title,
-                description: newDecision.description,
-                made_by: user.id,
-            })
+            body: JSON.stringify({ company_id: profile.company_id, title: newDecision.title, description: newDecision.description, made_by: user.id })
         })
         const data = await res.json()
         if (data.success) {
@@ -183,11 +146,7 @@ export default function Dashboard() {
     }
 
     async function handleResolveAlert(alertId: string) {
-        await fetch('/api/alerts', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: alertId })
-        })
+        await fetch('/api/alerts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: alertId }) })
         setAlerts(prev => prev.filter(a => a.id !== alertId))
     }
 
@@ -249,12 +208,35 @@ export default function Dashboard() {
 
     async function handleRemoveMember(userId: string) {
         if (!confirm(lang === 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?')) return
-        await fetch('/api/team', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId })
-        })
+        await fetch('/api/team', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId }) })
         setMembers(prev => prev.filter(m => m.id !== userId))
+    }
+
+    async function handleRootCause() {
+        if (!rootCauseQuery.trim() || !profile) return
+        setLoadingRootCause(true)
+        setRootCause(null)
+        const res = await fetch('/api/rootcause', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: profile.company_id, event: rootCauseQuery })
+        })
+        const data = await res.json()
+        if (data.analysis) setRootCause(data.analysis)
+        setLoadingRootCause(false)
+    }
+
+    async function loadWhatChanged() {
+        if (!profile) return
+        setLoadingWhatChanged(true)
+        const res = await fetch('/api/whatchanged', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: profile.company_id })
+        })
+        const data = await res.json()
+        if (data.analysis) setWhatChanged(data.analysis)
+        setLoadingWhatChanged(false)
     }
 
     async function handleLogout() {
@@ -282,7 +264,6 @@ export default function Dashboard() {
         return severity === 'high' ? 'High' : severity === 'medium' ? 'Medium' : 'Low'
     }
 
-
     const tabs = ['chat', 'intelligence', 'briefing', 'decisions', 'alerts', 'rootcause', 'whatchanged', 'documents', 'timeline', 'team']
 
     const tabLabel = (tab: string) => {
@@ -292,11 +273,11 @@ export default function Dashboard() {
             briefing: `📊 ${lang === 'ar' ? 'التقرير الأسبوعي' : 'Weekly Briefing'}`,
             decisions: `⚖️ ${lang === 'ar' ? 'القرارات' : 'Decisions'}`,
             alerts: `🚨 ${lang === 'ar' ? 'التنبيهات' : 'Alerts'} ${alerts.length > 0 ? `(${alerts.length})` : ''}`,
+            rootcause: `🔍 ${lang === 'ar' ? 'تحليل الأسباب' : 'Root Cause'}`,
+            whatchanged: `🔄 ${lang === 'ar' ? 'ما الذي تغير' : 'What Changed'}`,
             documents: `📄 ${tx.documents}`,
             timeline: `📅 ${lang === 'ar' ? 'التايم لاين' : 'Timeline'}`,
             team: `👥 ${tx.team}`,
-            rootcause: `🔍 ${lang === 'ar' ? 'تحليل الأسباب' : 'Root Cause'}`,
-            whatchanged: `🔄 ${lang === 'ar' ? 'ما الذي تغير' : 'What Changed'}`,
         }
         return labels[tab]
     }
@@ -319,9 +300,7 @@ export default function Dashboard() {
                     )}
                     <span className="text-xs text-purple-400">{roleLabel(profile?.role)}</span>
                     <span className="text-sm text-gray-400">{user?.email}</span>
-                    <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">
-                        {tx.logout}
-                    </button>
+                    <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">{tx.logout}</button>
                 </div>
             </nav>
 
@@ -352,7 +331,6 @@ export default function Dashboard() {
                     ))}
                 </div>
 
-                {/* CHAT TAB */}
                 {activeTab === 'chat' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
@@ -383,9 +361,7 @@ export default function Dashboard() {
                         )}
                         {conversations.length > 0 && (
                             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                <h3 className="text-gray-400 font-medium mb-3">
-                                    {lang === 'ar' ? 'المحادثات السابقة' : 'Previous Conversations'}:
-                                </h3>
+                                <h3 className="text-gray-400 font-medium mb-3">{lang === 'ar' ? 'المحادثات السابقة' : 'Previous Conversations'}:</h3>
                                 {conversations.slice(0, 5).map((c) => (
                                     <div key={c.id} className="border-b border-gray-800 pb-3 mb-3 last:border-0">
                                         <p className="text-sm text-purple-400 mb-1">{lang === 'ar' ? 'س' : 'Q'}: {c.question}</p>
@@ -397,111 +373,6 @@ export default function Dashboard() {
                     </div>
                 )}
 
-
-                {activeTab === 'whatchanged' && (
-                    <div className="space-y-4">
-                        {loadingWhatChanged ? (
-                            <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
-                                <div className="text-4xl mb-4 animate-pulse">🔄</div>
-                                <p className="text-purple-400">{lang === 'ar' ? 'جاري تحليل التغييرات...' : 'Analyzing changes...'}</p>
-                            </div>
-                        ) : whatChanged ? (
-                            <>
-                                <div className="bg-purple-900/20 rounded-xl p-6 border border-purple-800">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h3 className="text-purple-400 font-medium">
-                                            🔄 {lang === 'ar' ? 'ملخص التغييرات' : 'Changes Summary'}
-                                        </h3>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xs text-gray-400">
-                                                {lang === 'ar' ? 'سرعة التغيير:' : 'Change velocity:'}
-                                                <span className={`ml-1 font-medium ${whatChanged.change_velocity === 'high' ? 'text-red-400' : whatChanged.change_velocity === 'medium' ? 'text-yellow-400' : 'text-green-400'}`}>
-                                                    {whatChanged.change_velocity}
-                                                </span>
-                                            </span>
-                                            <span className="text-xs text-gray-400">
-                                                {lang === 'ar' ? 'الاستقرار:' : 'Stability:'}
-                                                <span className="ml-1 font-medium text-purple-400">{whatChanged.stability_score}%</span>
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <p className="text-gray-200">{whatChanged.summary}</p>
-                                </div>
-
-                                {whatChanged.significant_changes?.length > 0 && (
-                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-blue-400">
-                                            📌 {lang === 'ar' ? 'التغييرات المهمة' : 'Significant Changes'}
-                                        </h3>
-                                        {whatChanged.significant_changes.map((change: any, i: number) => (
-                                            <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span>{change.impact === 'positive' ? '✅' : change.impact === 'negative' ? '❌' : '➡️'}</span>
-                                                    <p className="font-medium text-sm">{change.title}</p>
-                                                    <span className="text-xs text-gray-500 ml-auto">{change.area}</span>
-                                                </div>
-                                                <p className="text-xs text-gray-400">{change.description}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {whatChanged.trends?.length > 0 && (
-                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-green-400">
-                                            📈 {lang === 'ar' ? 'الاتجاهات' : 'Trends'}
-                                        </h3>
-                                        {whatChanged.trends.map((trend: any, i: number) => (
-                                            <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span>{trend.direction === 'improving' ? '📈' : trend.direction === 'declining' ? '📉' : '➡️'}</span>
-                                                    <p className="font-medium text-sm">{trend.trend}</p>
-                                                </div>
-                                                <p className="text-xs text-gray-400">{trend.evidence}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {whatChanged.anomalies?.length > 0 && (
-                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-red-400">
-                                            ⚠️ {lang === 'ar' ? 'أنماط غير عادية' : 'Anomalies Detected'}
-                                        </h3>
-                                        {whatChanged.anomalies.map((anomaly: any, i: number) => (
-                                            <div key={i} className="bg-red-900/20 rounded-lg p-4 mb-3 border border-red-800">
-                                                <p className="font-medium text-sm text-red-400 mb-1">{anomaly.anomaly}</p>
-                                                <p className="text-xs text-gray-400 mb-2">{anomaly.explanation}</p>
-                                                <p className="text-xs text-yellow-400">→ {anomaly.action_needed}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <button onClick={loadWhatChanged}
-                                    className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
-                                    🔄 {lang === 'ar' ? 'تحديث التحليل' : 'Refresh Analysis'}
-                                </button>
-                            </>
-                        ) : (
-                            <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
-                                <div className="text-4xl mb-4">🔄</div>
-                                <h3 className="font-medium mb-2">
-                                    {lang === 'ar' ? 'محرك التغييرات' : 'What Changed Engine'}
-                                </h3>
-                                <p className="text-gray-500 text-sm mb-6">
-                                    {lang === 'ar' ? 'يكتشف التغييرات المهمة في شركتك تلقائياً' : 'Automatically detects meaningful changes in your company'}
-                                </p>
-                                <button onClick={loadWhatChanged}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all">
-                                    {lang === 'ar' ? 'اكتشف التغييرات' : 'Detect Changes'}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* INTELLIGENCE TAB */}
                 {activeTab === 'intelligence' && (
                     <div className="space-y-4">
                         {loadingIntelligence ? (
@@ -514,18 +385,16 @@ export default function Dashboard() {
                                 {intelligence.scores && (
                                     <div className="grid grid-cols-4 gap-4">
                                         {[
-                                            { label: lang === 'ar' ? 'مستوى المعرفة' : 'Knowledge', value: intelligence.scores.knowledge_score, color: 'purple' },
-                                            { label: lang === 'ar' ? 'قوة الفريق' : 'Team', value: intelligence.scores.team_score, color: 'blue' },
-                                            { label: lang === 'ar' ? 'النشاط' : 'Activity', value: intelligence.scores.activity_score, color: 'green' },
-                                            { label: lang === 'ar' ? 'التقييم الكلي' : 'Overall', value: intelligence.scores.overall_score, color: 'yellow' },
+                                            { label: lang === 'ar' ? 'المعرفة' : 'Knowledge', value: intelligence.scores.knowledge_score, color: '#9333ea' },
+                                            { label: lang === 'ar' ? 'الفريق' : 'Team', value: intelligence.scores.team_score, color: '#3b82f6' },
+                                            { label: lang === 'ar' ? 'النشاط' : 'Activity', value: intelligence.scores.activity_score, color: '#22c55e' },
+                                            { label: lang === 'ar' ? 'الكلي' : 'Overall', value: intelligence.scores.overall_score, color: '#eab308' },
                                         ].map((score, i) => (
                                             <div key={i} className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
                                                 <div className="relative w-16 h-16 mx-auto mb-3">
                                                     <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
                                                         <circle cx="18" cy="18" r="15.9" fill="none" stroke="#374151" strokeWidth="3" />
-                                                        <circle cx="18" cy="18" r="15.9" fill="none"
-                                                            stroke={score.color === 'purple' ? '#9333ea' : score.color === 'blue' ? '#3b82f6' : score.color === 'green' ? '#22c55e' : '#eab308'}
-                                                            strokeWidth="3" strokeDasharray={`${score.value} 100`} strokeLinecap="round" />
+                                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke={score.color} strokeWidth="3" strokeDasharray={`${score.value} 100`} strokeLinecap="round" />
                                                     </svg>
                                                     <div className="absolute inset-0 flex items-center justify-center">
                                                         <span className="text-white font-bold text-sm">{score.value}%</span>
@@ -540,6 +409,11 @@ export default function Dashboard() {
                                     <div className="bg-purple-900/20 rounded-xl p-6 border border-purple-800">
                                         <h3 className="text-purple-400 font-medium mb-2">📋 {tx.summary}</h3>
                                         <p className="text-gray-200 leading-relaxed">{intelligence.summary}</p>
+                                        {intelligence.from_cache && (
+                                            <p className="text-gray-500 text-xs mt-2">
+                                                {lang === 'ar' ? '⚡ من الذاكرة المؤقتة' : '⚡ From cache'}
+                                            </p>
+                                        )}
                                     </div>
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -550,9 +424,7 @@ export default function Dashboard() {
                                                 <div key={i} className={`rounded-lg p-3 mb-3 border ${severityColor(risk.severity)}`}>
                                                     <div className="flex items-center justify-between mb-1">
                                                         <p className="font-medium text-sm">{risk.title}</p>
-                                                        <span className={`text-xs px-2 py-0.5 rounded-full border ${severityColor(risk.severity)}`}>
-                                                            {severityLabel(risk.severity)}
-                                                        </span>
+                                                        <span className={`text-xs px-2 py-0.5 rounded-full border ${severityColor(risk.severity)}`}>{severityLabel(risk.severity)}</span>
                                                     </div>
                                                     <p className="text-xs mt-1 opacity-80">{risk.description}</p>
                                                 </div>
@@ -600,57 +472,7 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                 )}
-                                {intelligence.critique && (
-                                    <div className="bg-gray-900 rounded-xl p-6 border border-orange-800">
-                                        <h3 className="font-medium mb-4 text-orange-400">
-                                            🤖 {lang === 'ar' ? 'تحدي DeepSeek' : 'DeepSeek Challenge'}
-                                        </h3>
-                                        <p className="text-xs text-gray-500 mb-4">
-                                            {lang === 'ar' ? 'DeepSeek يراجع ويتحدى تحليل Gemini' : 'DeepSeek reviewing and challenging Gemini analysis'}
-                                        </p>
-
-                                        {intelligence.critique.challenges?.length > 0 && (
-                                            <div className="mb-4">
-                                                <p className="text-orange-400 text-sm font-medium mb-2">
-                                                    {lang === 'ar' ? 'نقاط التحدي:' : 'Challenges:'}
-                                                </p>
-                                                {intelligence.critique.challenges.map((c: any, i: number) => (
-                                                    <div key={i} className="bg-orange-900/20 rounded-lg p-3 mb-2 border border-orange-800">
-                                                        <p className="font-medium text-sm text-orange-400">{c.point}</p>
-                                                        <p className="text-xs text-gray-400 mt-1">{c.reasoning}</p>
-                                                        {c.alternative && <p className="text-xs text-blue-400 mt-1">→ {c.alternative}</p>}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {intelligence.critique.blind_spots?.length > 0 && (
-                                            <div className="mb-4">
-                                                <p className="text-yellow-400 text-sm font-medium mb-2">
-                                                    {lang === 'ar' ? 'نقاط عمياء:' : 'Blind Spots:'}
-                                                </p>
-                                                {intelligence.critique.blind_spots.map((spot: string, i: number) => (
-                                                    <div key={i} className="flex items-start gap-2 mb-1">
-                                                        <span className="text-yellow-400">⚠️</span>
-                                                        <p className="text-xs text-gray-300">{spot}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-700">
-                                            <span className="text-xs text-gray-400">
-                                                {lang === 'ar' ? 'الثقة المراجعة:' : 'Revised confidence:'}
-                                                <span className={`ml-1 font-medium ${intelligence.critique.revised_confidence === 'high' ? 'text-green-400' : intelligence.critique.revised_confidence === 'medium' ? 'text-yellow-400' : 'text-red-400'}`}>
-                                                    {intelligence.critique.revised_confidence}
-                                                </span>
-                                            </span>
-                                            <p className="text-xs text-gray-500">{intelligence.critique.final_verdict}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <button onClick={loadIntelligence}
+                                <button onClick={() => loadIntelligence(true)}
                                     className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
                                     🔄 {tx.refresh}
                                 </button>
@@ -660,7 +482,7 @@ export default function Dashboard() {
                                 <div className="text-4xl mb-4">🎯</div>
                                 <h3 className="font-medium mb-2">{tx.intelligence}</h3>
                                 <p className="text-gray-500 text-sm mb-6">{tx.uploadFirst}</p>
-                                <button onClick={loadIntelligence}
+                                <button onClick={() => loadIntelligence(false)}
                                     className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all">
                                     {tx.analyze}
                                 </button>
@@ -669,28 +491,22 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* BRIEFING TAB */}
                 {activeTab === 'briefing' && (
                     <div className="space-y-4">
                         {loadingBriefing ? (
                             <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
                                 <div className="text-4xl mb-4 animate-pulse">📊</div>
-                                <p className="text-purple-400">{lang === 'ar' ? 'جاري إنشاء التقرير الأسبوعي...' : 'Generating weekly briefing...'}</p>
+                                <p className="text-purple-400">{lang === 'ar' ? 'جاري إنشاء التقرير...' : 'Generating briefing...'}</p>
                             </div>
                         ) : briefing ? (
                             <>
                                 <div className="bg-purple-900/20 rounded-xl p-6 border border-purple-800">
-                                    <h3 className="text-purple-400 font-medium mb-2">
-                                        📊 {lang === 'ar' ? 'التقرير الأسبوعي' : 'Weekly Briefing'}
-                                    </h3>
+                                    <h3 className="text-purple-400 font-medium mb-2">📊 {lang === 'ar' ? 'التقرير الأسبوعي' : 'Weekly Briefing'}</h3>
                                     <p className="text-white text-lg font-medium">{briefing.headline}</p>
                                 </div>
-
                                 {briefing.top_priorities?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-yellow-400">
-                                            🎯 {lang === 'ar' ? 'أولويات الأسبوع' : 'Top Priorities'}
-                                        </h3>
+                                        <h3 className="font-medium mb-4 text-yellow-400">🎯 {lang === 'ar' ? 'أولويات الأسبوع' : 'Top Priorities'}</h3>
                                         {briefing.top_priorities.map((p: any, i: number) => (
                                             <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
                                                 <div className="flex items-center gap-2 mb-1">
@@ -702,12 +518,9 @@ export default function Dashboard() {
                                         ))}
                                     </div>
                                 )}
-
                                 {briefing.what_changed?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-blue-400">
-                                            🔄 {lang === 'ar' ? 'ما الذي تغير؟' : 'What Changed?'}
-                                        </h3>
+                                        <h3 className="font-medium mb-4 text-blue-400">🔄 {lang === 'ar' ? 'ما الذي تغير؟' : 'What Changed?'}</h3>
                                         {briefing.what_changed.map((c: string, i: number) => (
                                             <div key={i} className="flex items-start gap-2 mb-2">
                                                 <span className="text-blue-400 mt-1">•</span>
@@ -716,12 +529,9 @@ export default function Dashboard() {
                                         ))}
                                     </div>
                                 )}
-
                                 {briefing.next_week_focus?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-green-400">
-                                            🚀 {lang === 'ar' ? 'تركيز الأسبوع القادم' : 'Next Week Focus'}
-                                        </h3>
+                                        <h3 className="font-medium mb-4 text-green-400">🚀 {lang === 'ar' ? 'تركيز الأسبوع القادم' : 'Next Week Focus'}</h3>
                                         {briefing.next_week_focus.map((f: string, i: number) => (
                                             <div key={i} className="flex items-start gap-2 mb-2">
                                                 <span className="text-green-400 mt-1">→</span>
@@ -730,23 +540,16 @@ export default function Dashboard() {
                                         ))}
                                     </div>
                                 )}
-
-                                <button onClick={loadBriefing}
-                                    className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
+                                <button onClick={loadBriefing} className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
                                     🔄 {lang === 'ar' ? 'إنشاء تقرير جديد' : 'Generate New Briefing'}
                                 </button>
                             </>
                         ) : (
                             <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
                                 <div className="text-4xl mb-4">📊</div>
-                                <h3 className="font-medium mb-2">
-                                    {lang === 'ar' ? 'التقرير الأسبوعي' : 'Weekly Briefing'}
-                                </h3>
-                                <p className="text-gray-500 text-sm mb-6">
-                                    {lang === 'ar' ? 'تقرير ذكي يلخص أسبوع شركتك' : 'AI-powered summary of your company week'}
-                                </p>
-                                <button onClick={loadBriefing}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all">
+                                <h3 className="font-medium mb-2">{lang === 'ar' ? 'التقرير الأسبوعي' : 'Weekly Briefing'}</h3>
+                                <p className="text-gray-500 text-sm mb-6">{lang === 'ar' ? 'تقرير ذكي يلخص أسبوع شركتك' : 'AI-powered summary of your company week'}</p>
+                                <button onClick={loadBriefing} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all">
                                     {lang === 'ar' ? 'إنشاء التقرير' : 'Generate Briefing'}
                                 </button>
                             </div>
@@ -754,153 +557,100 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* DECISIONS TAB */}
                 {activeTab === 'decisions' && (
                     <div className="space-y-4">
                         {(profile?.role === 'owner' || profile?.role === 'dept_head') && (
                             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                <h3 className="font-medium mb-4">
-                                    ⚖️ {lang === 'ar' ? 'تسجيل قرار جديد' : 'Record New Decision'}
-                                </h3>
-                                <input type="text"
-                                    placeholder={lang === 'ar' ? 'عنوان القرار...' : 'Decision title...'}
-                                    value={newDecision.title}
+                                <h3 className="font-medium mb-4">⚖️ {lang === 'ar' ? 'تسجيل قرار جديد' : 'Record New Decision'}</h3>
+                                <input type="text" placeholder={lang === 'ar' ? 'عنوان القرار...' : 'Decision title...'} value={newDecision.title}
                                     onChange={e => setNewDecision(prev => ({ ...prev, title: e.target.value }))}
                                     className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500" />
-                                <textarea
-                                    placeholder={lang === 'ar' ? 'لماذا تم اتخاذ هذا القرار؟ ما هي الأدلة؟' : 'Why was this decision made? What is the evidence?'}
-                                    value={newDecision.description}
+                                <textarea placeholder={lang === 'ar' ? 'لماذا تم اتخاذ هذا القرار؟' : 'Why was this decision made?'} value={newDecision.description}
                                     onChange={e => setNewDecision(prev => ({ ...prev, description: e.target.value }))}
-                                    className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500 resize-none"
-                                    rows={3} />
+                                    className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500 resize-none" rows={3} />
                                 <button onClick={handleAddDecision} disabled={addingDecision || !newDecision.title}
                                     className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all disabled:opacity-50">
                                     {addingDecision ? '...' : lang === 'ar' ? 'تسجيل القرار' : 'Record Decision'}
                                 </button>
                             </div>
                         )}
-
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                            <h3 className="font-medium mb-4">
-                                {lang === 'ar' ? `القرارات (${decisions.length})` : `Decisions (${decisions.length})`}
-                            </h3>
+                            <h3 className="font-medium mb-4">{lang === 'ar' ? `القرارات (${decisions.length})` : `Decisions (${decisions.length})`}</h3>
                             {decisions.length === 0 ? (
-                                <p className="text-gray-500 text-sm">
-                                    {lang === 'ar' ? 'لا توجد قرارات مسجلة بعد' : 'No decisions recorded yet'}
-                                </p>
-                            ) : (
-                                decisions.map((decision) => (
-                                    <div key={decision.id} className="bg-gray-800 rounded-xl p-4 mb-3 border border-gray-700">
-                                        <div className="flex items-start justify-between mb-2">
-                                            <h4 className="font-medium text-white">{decision.title}</h4>
-                                            <span className={`text-xs px-2 py-1 rounded-full ${decision.status === 'active' ? 'bg-green-900 text-green-400' : 'bg-gray-700 text-gray-400'}`}>
-                                                {decision.status === 'active' ? (lang === 'ar' ? 'نشط' : 'Active') : (lang === 'ar' ? 'مكتمل' : 'Completed')}
-                                            </span>
-                                        </div>
-                                        {decision.description && (
-                                            <p className="text-gray-400 text-sm mb-2">{decision.description}</p>
-                                        )}
-                                        <p className="text-xs text-gray-500">
-                                            {new Date(decision.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
-                                        </p>
+                                <p className="text-gray-500 text-sm">{lang === 'ar' ? 'لا توجد قرارات مسجلة بعد' : 'No decisions recorded yet'}</p>
+                            ) : decisions.map((decision) => (
+                                <div key={decision.id} className="bg-gray-800 rounded-xl p-4 mb-3 border border-gray-700">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <h4 className="font-medium text-white">{decision.title}</h4>
+                                        <span className={`text-xs px-2 py-1 rounded-full ${decision.status === 'active' ? 'bg-green-900 text-green-400' : 'bg-gray-700 text-gray-400'}`}>
+                                            {decision.status === 'active' ? (lang === 'ar' ? 'نشط' : 'Active') : (lang === 'ar' ? 'مكتمل' : 'Completed')}
+                                        </span>
                                     </div>
-                                ))
-                            )}
+                                    {decision.description && <p className="text-gray-400 text-sm mb-2">{decision.description}</p>}
+                                    <p className="text-xs text-gray-500">{new Date(decision.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}</p>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
 
-                {/* ALERTS TAB */}
                 {activeTab === 'alerts' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                            <h3 className="font-medium mb-4 text-red-400">
-                                🚨 {lang === 'ar' ? `التنبيهات النشطة (${alerts.length})` : `Active Alerts (${alerts.length})`}
-                            </h3>
+                            <h3 className="font-medium mb-4 text-red-400">🚨 {lang === 'ar' ? `التنبيهات النشطة (${alerts.length})` : `Active Alerts (${alerts.length})`}</h3>
                             {alerts.length === 0 ? (
                                 <div className="text-center py-8">
                                     <div className="text-4xl mb-3">✅</div>
-                                    <p className="text-gray-500 text-sm">
-                                        {lang === 'ar' ? 'لا توجد تنبيهات نشطة' : 'No active alerts'}
-                                    </p>
+                                    <p className="text-gray-500 text-sm">{lang === 'ar' ? 'لا توجد تنبيهات نشطة' : 'No active alerts'}</p>
                                 </div>
-                            ) : (
-                                alerts.map((alert) => (
-                                    <div key={alert.id} className={`rounded-xl p-4 mb-3 border ${severityColor(alert.severity)}`}>
-                                        <div className="flex items-start justify-between mb-2">
-                                            <div>
-                                                <span className="text-xs opacity-70 mb-1 block">{alert.type}</span>
-                                                <h4 className="font-medium text-sm">{alert.title}</h4>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-xs px-2 py-0.5 rounded-full border ${severityColor(alert.severity)}`}>
-                                                    {severityLabel(alert.severity)}
-                                                </span>
-                                                {profile?.role === 'owner' && (
-                                                    <button onClick={() => handleResolveAlert(alert.id)}
-                                                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-gray-700">
-                                                        {lang === 'ar' ? 'حل' : 'Resolve'}
-                                                    </button>
-                                                )}
-                                            </div>
+                            ) : alerts.map((alert) => (
+                                <div key={alert.id} className={`rounded-xl p-4 mb-3 border ${severityColor(alert.severity)}`}>
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div>
+                                            <span className="text-xs opacity-70 mb-1 block">{alert.type}</span>
+                                            <h4 className="font-medium text-sm">{alert.title}</h4>
                                         </div>
-                                        {alert.description && (
-                                            <p className="text-xs opacity-80">{alert.description}</p>
-                                        )}
-                                        <p className="text-xs opacity-50 mt-2">
-                                            {new Date(alert.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
-                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xs px-2 py-0.5 rounded-full border ${severityColor(alert.severity)}`}>{severityLabel(alert.severity)}</span>
+                                            {profile?.role === 'owner' && (
+                                                <button onClick={() => handleResolveAlert(alert.id)} className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-gray-700">
+                                                    {lang === 'ar' ? 'حل' : 'Resolve'}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                ))
-                            )}
+                                    {alert.description && <p className="text-xs opacity-80">{alert.description}</p>}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
-
-
 
                 {activeTab === 'rootcause' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                            <h3 className="font-medium mb-4">
-                                🔍 {lang === 'ar' ? 'محرك تحليل الأسباب الجذرية' : 'Root Cause Analysis Engine'}
-                            </h3>
-                            <p className="text-gray-400 text-sm mb-4">
-                                {lang === 'ar' ? 'اسأل: ليه حصلت كذا؟ وهيشرحلك السبب الحقيقي بالأدلة' : 'Ask: Why did X happen? Get evidence-backed root cause analysis'}
-                            </p>
-                            <textarea
-                                value={rootCauseQuery}
-                                onChange={e => setRootCauseQuery(e.target.value)}
+                            <h3 className="font-medium mb-4">🔍 {lang === 'ar' ? 'محرك تحليل الأسباب الجذرية' : 'Root Cause Analysis Engine'}</h3>
+                            <textarea value={rootCauseQuery} onChange={e => setRootCauseQuery(e.target.value)}
                                 placeholder={lang === 'ar' ? 'مثال: ليه نزلت المبيعات الشهر ده؟' : 'Example: Why did sales drop this month?'}
-                                className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500 resize-none"
-                                rows={3}
-                            />
+                                className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500 resize-none" rows={3} />
                             <button onClick={handleRootCause} disabled={loadingRootCause || !rootCauseQuery.trim()}
                                 className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all disabled:opacity-50">
                                 {loadingRootCause ? (lang === 'ar' ? 'جاري التحليل...' : 'Analyzing...') : (lang === 'ar' ? 'حلل الأسباب' : 'Analyze')}
                             </button>
                         </div>
-
                         {rootCause && (
                             <>
                                 <div className="bg-red-900/20 rounded-xl p-6 border border-red-800">
-                                    <h3 className="text-red-400 font-medium mb-2">
-                                        ⚡ {lang === 'ar' ? 'السبب المباشر' : 'Immediate Cause'}
-                                    </h3>
+                                    <h3 className="text-red-400 font-medium mb-2">⚡ {lang === 'ar' ? 'السبب المباشر' : 'Immediate Cause'}</h3>
                                     <p className="text-gray-200">{rootCause.immediate_cause}</p>
                                 </div>
-
                                 {rootCause.root_causes?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-orange-400">
-                                            🌳 {lang === 'ar' ? 'الأسباب الجذرية' : 'Root Causes'}
-                                        </h3>
+                                        <h3 className="font-medium mb-4 text-orange-400">🌳 {lang === 'ar' ? 'الأسباب الجذرية' : 'Root Causes'}</h3>
                                         {rootCause.root_causes.map((rc: any, i: number) => (
                                             <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
                                                 <div className="flex items-center gap-2 mb-2">
-                                                    <span className={`text-xs px-2 py-1 rounded-full ${rc.depth === 'systemic' ? 'bg-red-900 text-red-400' : rc.depth === 'deep' ? 'bg-orange-900 text-orange-400' : 'bg-yellow-900 text-yellow-400'}`}>
-                                                        {rc.depth}
-                                                    </span>
+                                                    <span className={`text-xs px-2 py-1 rounded-full ${rc.depth === 'systemic' ? 'bg-red-900 text-red-400' : rc.depth === 'deep' ? 'bg-orange-900 text-orange-400' : 'bg-yellow-900 text-yellow-400'}`}>{rc.depth}</span>
                                                     <p className="font-medium text-sm">{rc.cause}</p>
                                                 </div>
                                                 <p className="text-xs text-gray-400">{rc.evidence}</p>
@@ -908,28 +658,20 @@ export default function Dashboard() {
                                         ))}
                                     </div>
                                 )}
-
                                 {rootCause.chain_of_events?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-blue-400">
-                                            🔗 {lang === 'ar' ? 'سلسلة الأحداث' : 'Chain of Events'}
-                                        </h3>
+                                        <h3 className="font-medium mb-4 text-blue-400">🔗 {lang === 'ar' ? 'سلسلة الأحداث' : 'Chain of Events'}</h3>
                                         {rootCause.chain_of_events.map((step: string, i: number) => (
                                             <div key={i} className="flex items-start gap-3 mb-3">
-                                                <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
-                                                    {i + 1}
-                                                </div>
+                                                <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</div>
                                                 <p className="text-sm text-gray-300 mt-0.5">{step}</p>
                                             </div>
                                         ))}
                                     </div>
                                 )}
-
                                 {rootCause.prevention_recommendations?.length > 0 && (
                                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                                        <h3 className="font-medium mb-4 text-green-400">
-                                            🛡️ {lang === 'ar' ? 'توصيات للوقاية' : 'Prevention Recommendations'}
-                                        </h3>
+                                        <h3 className="font-medium mb-4 text-green-400">🛡️ {lang === 'ar' ? 'توصيات للوقاية' : 'Prevention Recommendations'}</h3>
                                         {rootCause.prevention_recommendations.map((rec: string, i: number) => (
                                             <div key={i} className="flex items-start gap-2 mb-2">
                                                 <span className="text-green-400 mt-1">✓</span>
@@ -938,19 +680,88 @@ export default function Dashboard() {
                                         ))}
                                     </div>
                                 )}
-
-                                <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex items-center gap-3">
-                                    <span className={`text-sm font-medium ${rootCause.confidence_level === 'high' ? 'text-green-400' : rootCause.confidence_level === 'medium' ? 'text-yellow-400' : 'text-red-400'}`}>
-                                        {lang === 'ar' ? 'مستوى الثقة:' : 'Confidence:'} {rootCause.confidence_level}
-                                    </span>
-                                    <p className="text-xs text-gray-500">{rootCause.confidence_reason}</p>
-                                </div>
                             </>
                         )}
                     </div>
                 )}
 
-                {/* DOCUMENTS TAB */}
+                {activeTab === 'whatchanged' && (
+                    <div className="space-y-4">
+                        {loadingWhatChanged ? (
+                            <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
+                                <div className="text-4xl mb-4 animate-pulse">🔄</div>
+                                <p className="text-purple-400">{lang === 'ar' ? 'جاري تحليل التغييرات...' : 'Analyzing changes...'}</p>
+                            </div>
+                        ) : whatChanged ? (
+                            <>
+                                <div className="bg-purple-900/20 rounded-xl p-6 border border-purple-800">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-purple-400 font-medium">🔄 {lang === 'ar' ? 'ملخص التغييرات' : 'Changes Summary'}</h3>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs text-gray-400">{lang === 'ar' ? 'سرعة التغيير:' : 'Velocity:'} <span className={`font-medium ${whatChanged.change_velocity === 'high' ? 'text-red-400' : whatChanged.change_velocity === 'medium' ? 'text-yellow-400' : 'text-green-400'}`}>{whatChanged.change_velocity}</span></span>
+                                            <span className="text-xs text-gray-400">{lang === 'ar' ? 'الاستقرار:' : 'Stability:'} <span className="font-medium text-purple-400">{whatChanged.stability_score}%</span></span>
+                                        </div>
+                                    </div>
+                                    <p className="text-gray-200">{whatChanged.summary}</p>
+                                </div>
+                                {whatChanged.significant_changes?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-blue-400">📌 {lang === 'ar' ? 'التغييرات المهمة' : 'Significant Changes'}</h3>
+                                        {whatChanged.significant_changes.map((change: any, i: number) => (
+                                            <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span>{change.impact === 'positive' ? '✅' : change.impact === 'negative' ? '❌' : '➡️'}</span>
+                                                    <p className="font-medium text-sm">{change.title}</p>
+                                                    <span className="text-xs text-gray-500 ml-auto">{change.area}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-400">{change.description}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {whatChanged.trends?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-green-400">📈 {lang === 'ar' ? 'الاتجاهات' : 'Trends'}</h3>
+                                        {whatChanged.trends.map((trend: any, i: number) => (
+                                            <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span>{trend.direction === 'improving' ? '📈' : trend.direction === 'declining' ? '📉' : '➡️'}</span>
+                                                    <p className="font-medium text-sm">{trend.trend}</p>
+                                                </div>
+                                                <p className="text-xs text-gray-400">{trend.evidence}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {whatChanged.anomalies?.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                                        <h3 className="font-medium mb-4 text-red-400">⚠️ {lang === 'ar' ? 'أنماط غير عادية' : 'Anomalies'}</h3>
+                                        {whatChanged.anomalies.map((anomaly: any, i: number) => (
+                                            <div key={i} className="bg-red-900/20 rounded-lg p-4 mb-3 border border-red-800">
+                                                <p className="font-medium text-sm text-red-400 mb-1">{anomaly.anomaly}</p>
+                                                <p className="text-xs text-gray-400 mb-2">{anomaly.explanation}</p>
+                                                <p className="text-xs text-yellow-400">→ {anomaly.action_needed}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <button onClick={loadWhatChanged} className="w-full py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-purple-500 transition-all text-sm">
+                                    🔄 {lang === 'ar' ? 'تحديث التحليل' : 'Refresh Analysis'}
+                                </button>
+                            </>
+                        ) : (
+                            <div className="bg-gray-900 rounded-xl p-12 border border-gray-800 text-center">
+                                <div className="text-4xl mb-4">🔄</div>
+                                <h3 className="font-medium mb-2">{lang === 'ar' ? 'محرك التغييرات' : 'What Changed Engine'}</h3>
+                                <p className="text-gray-500 text-sm mb-6">{lang === 'ar' ? 'يكتشف التغييرات المهمة تلقائياً' : 'Automatically detects meaningful changes'}</p>
+                                <button onClick={loadWhatChanged} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all">
+                                    {lang === 'ar' ? 'اكتشف التغييرات' : 'Detect Changes'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {activeTab === 'documents' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
@@ -958,65 +769,48 @@ export default function Dashboard() {
                             <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-700 rounded-xl cursor-pointer hover:border-purple-500 transition-colors">
                                 <div className="text-center">
                                     {uploading ? <p className="text-purple-400">{tx.processing}</p> : (
-                                        <>
-                                            <p className="text-gray-400 mb-1">{lang === 'ar' ? 'اضغط لرفع ملف' : 'Click to upload file'}</p>
-                                            <p className="text-gray-600 text-sm">PDF, DOCX, TXT, XLSX, CSV, Code</p>
-                                        </>
+                                        <><p className="text-gray-400 mb-1">{lang === 'ar' ? 'اضغط لرفع ملف' : 'Click to upload'}</p><p className="text-gray-600 text-sm">PDF, DOCX, TXT, XLSX, CSV, Code</p></>
                                     )}
                                 </div>
-                                <input type="file" className="hidden"
-                                    accept=".pdf,.docx,.txt,.xlsx,.xls,.csv,.py,.js,.ts,.tsx,.jsx,.cpp,.java,.html,.css"
-                                    onChange={handleUpload} />
+                                <input type="file" className="hidden" accept=".pdf,.docx,.txt,.xlsx,.xls,.csv,.py,.js,.ts,.tsx,.jsx,.cpp,.java,.html,.css" onChange={handleUpload} />
                             </label>
                         </div>
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                             <h3 className="font-medium mb-4">{tx.documents} ({documents.length})</h3>
-                            {documents.length === 0 ? <p className="text-gray-500 text-sm">{tx.noDocuments}</p> : (
-                                documents.map((doc) => (
-                                    <div key={doc.id} className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0">
-                                        <div>
-                                            <p className="font-medium text-sm">{doc.name}</p>
-                                            <p className="text-xs text-gray-500">{new Date(doc.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-xs px-2 py-1 rounded-full ${doc.status === 'completed' ? 'bg-green-900 text-green-400' : 'bg-yellow-900 text-yellow-400'}`}>
-                                                {doc.status === 'completed' ? tx.completed : tx.processing}
-                                            </span>
-                                            {canDelete(doc) && (
-                                                <button onClick={() => handleDelete(doc.id)}
-                                                    className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-800">
-                                                    {tx.delete}
-                                                </button>
-                                            )}
-                                        </div>
+                            {documents.length === 0 ? <p className="text-gray-500 text-sm">{tx.noDocuments}</p> : documents.map((doc) => (
+                                <div key={doc.id} className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0">
+                                    <div>
+                                        <p className="font-medium text-sm">{doc.name}</p>
+                                        <p className="text-xs text-gray-500">{new Date(doc.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}</p>
                                     </div>
-                                ))
-                            )}
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xs px-2 py-1 rounded-full ${doc.status === 'completed' ? 'bg-green-900 text-green-400' : 'bg-yellow-900 text-yellow-400'}`}>
+                                            {doc.status === 'completed' ? tx.completed : tx.processing}
+                                        </span>
+                                        {canDelete(doc) && (
+                                            <button onClick={() => handleDelete(doc.id)} className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-800">{tx.delete}</button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
 
-                {/* TIMELINE TAB */}
                 {activeTab === 'timeline' && (
                     <div className="space-y-4">
                         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                             <h3 className="font-medium mb-6">📅 {lang === 'ar' ? 'تاريخ الشركة' : 'Company Timeline'}</h3>
-                            {timeline.length === 0 ? (
-                                <p className="text-gray-500 text-sm">{tx.uploadFirst}</p>
-                            ) : (
+                            {timeline.length === 0 ? <p className="text-gray-500 text-sm">{tx.uploadFirst}</p> : (
                                 <div className="relative">
                                     <div className={`absolute ${isRTL ? 'right-4' : 'left-4'} top-0 bottom-0 w-0.5 bg-purple-800`} />
                                     {timeline.map((event, i) => (
                                         <div key={event.id} className={`flex gap-6 mb-6 relative ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold shrink-0 z-10">
-                                                {i + 1}
-                                            </div>
+                                            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold shrink-0 z-10">{i + 1}</div>
                                             <div className="flex-1 bg-gray-800 rounded-xl p-4 border border-gray-700">
                                                 <div className="flex items-start justify-between mb-2">
                                                     <h4 className="font-medium text-white text-sm">{event.title}</h4>
-                                                    <span className="text-xs text-purple-400 shrink-0 mx-2">
-                                                        {new Date(event.event_date).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
-                                                    </span>
+                                                    <span className="text-xs text-purple-400 shrink-0 mx-2">{new Date(event.event_date).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}</span>
                                                 </div>
                                                 <p className="text-gray-400 text-sm">{event.description}</p>
                                             </div>
@@ -1028,20 +822,17 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* TEAM TAB */}
                 {activeTab === 'team' && (
                     <div className="space-y-4">
                         {profile?.role === 'owner' && (
                             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                                 <h3 className="font-medium mb-4">{tx.invite}</h3>
                                 <div className="flex gap-3">
-                                    <select value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)}
-                                        className="bg-gray-800 text-white rounded-lg px-4 py-2 border border-gray-700 focus:outline-none focus:border-purple-500">
+                                    <select value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)} className="bg-gray-800 text-white rounded-lg px-4 py-2 border border-gray-700 focus:outline-none focus:border-purple-500">
                                         <option value="employee">👤 {tx.employee}</option>
                                         <option value="dept_head">🏢 {tx.deptHead}</option>
                                     </select>
-                                    <button onClick={handleGenerateInvite} disabled={generatingCode}
-                                        className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all disabled:opacity-50">
+                                    <button onClick={handleGenerateInvite} disabled={generatingCode} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-all disabled:opacity-50">
                                         {generatingCode ? '...' : lang === 'ar' ? 'إنشاء كود' : 'Generate Code'}
                                     </button>
                                 </div>
@@ -1052,14 +843,9 @@ export default function Dashboard() {
                                             <div key={code.id} className="flex items-center justify-between bg-gray-800 rounded-lg p-3 mb-2">
                                                 <div>
                                                     <span className="font-mono text-purple-400 text-lg font-bold">{code.code}</span>
-                                                    <span className="text-gray-500 text-xs mx-3">
-                                                        {code.role === 'employee' ? `👤 ${tx.employee}` : `🏢 ${tx.deptHead}`}
-                                                    </span>
+                                                    <span className="text-gray-500 text-xs mx-3">{code.role === 'employee' ? `👤 ${tx.employee}` : `🏢 ${tx.deptHead}`}</span>
                                                 </div>
-                                                <button onClick={() => navigator.clipboard.writeText(code.code)}
-                                                    className="text-xs text-purple-400 hover:text-purple-300 px-2 py-1 rounded border border-purple-800">
-                                                    {tx.copy}
-                                                </button>
+                                                <button onClick={() => navigator.clipboard.writeText(code.code)} className="text-xs text-purple-400 hover:text-purple-300 px-2 py-1 rounded border border-purple-800">{tx.copy}</button>
                                             </div>
                                         ))}
                                     </div>
@@ -1075,10 +861,7 @@ export default function Dashboard() {
                                         <p className="text-xs text-gray-500">{roleLabel(member.role)}</p>
                                     </div>
                                     {profile?.role === 'owner' && member.id !== user?.id && (
-                                        <button onClick={() => handleRemoveMember(member.id)}
-                                            className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-800">
-                                            {tx.remove}
-                                        </button>
+                                        <button onClick={() => handleRemoveMember(member.id)} className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-800">{tx.remove}</button>
                                     )}
                                 </div>
                             ))}
