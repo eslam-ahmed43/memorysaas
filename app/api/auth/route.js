@@ -1,83 +1,77 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextResponse } from 'next/server'
 
-const authRequests = new Map()
-
-function rateLimit(ip, limit = 5, windowMs = 300000) {
-    const now = Date.now()
-    const windowStart = now - windowMs
-    if (!authRequests.has(ip)) authRequests.set(ip, [])
-    const reqs = authRequests.get(ip).filter(t => t > windowStart)
-    reqs.push(now)
-    authRequests.set(ip, reqs)
-    return reqs.length <= limit
-}
-
-function validateEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-function validatePassword(password) {
-    return password && password.length >= 8
-}
-
 export async function POST(request) {
     const supabase = getSupabaseAdmin()
+
     try {
-        const ip = request.headers.get('x-forwarded-for') || 'unknown'
-        if (!rateLimit(ip)) {
-            return NextResponse.json({ error: 'محاولات كثيرة جداً، انتظر 5 دقائق' }, { status: 429 })
+        const { email, otp } = await request.json()
+
+        if (!email || !otp) {
+            return NextResponse.json({ error: 'Missing email or OTP' }, { status: 400 })
         }
 
-        const body = await request.json()
-        const { action, email, password, companyName } = body
+        const emailLower = email.toLowerCase().trim()
 
-        if (!email || !validateEmail(email)) {
-            return NextResponse.json({ error: 'البريد الإلكتروني غير صحيح' }, { status: 400 })
+        // Get OTP from DB
+        const { data: otpRecord, error } = await supabase
+            .from('email_otps')
+            .select('*')
+            .eq('email', emailLower)
+            .eq('otp', otp)
+            .eq('used', false)
+            .single()
+
+        if (error || !otpRecord) {
+            return NextResponse.json({ error: 'Invalid OTP' }, { status: 400 })
         }
 
-        if (!validatePassword(password)) {
-            return NextResponse.json({ error: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' }, { status: 400 })
+        // Check expiry
+        if (new Date() > new Date(otpRecord.expires_at)) {
+            await supabase.from('email_otps').delete().eq('id', otpRecord.id)
+            return NextResponse.json({ error: 'OTP expired' }, { status: 400 })
         }
 
-        if (action === 'signup') {
-            if (!companyName || companyName.trim().length < 2) {
-                return NextResponse.json({ error: 'اسم الشركة يجب أن يكون حرفين على الأقل' }, { status: 400 })
-            }
+        // Mark OTP as used
+        await supabase.from('email_otps').update({ used: true }).eq('id', otpRecord.id)
 
-            if (companyName.length > 100) {
-                return NextResponse.json({ error: 'اسم الشركة طويل جداً' }, { status: 400 })
-            }
+        // Create or get user
+        const { data: existingUsers } = await supabase.auth.admin.listUsers()
+        const existingUser = existingUsers?.users?.find(u => u.email === emailLower)
 
-            const { data: existingUser } = await supabase.auth.admin.listUsers()
-            const userExists = existingUser?.users?.some(u => u.email === email)
-            if (userExists) {
-                return NextResponse.json({ error: 'البريد الإلكتروني مسجل بالفعل' }, { status: 400 })
-            }
+        let userId
 
-            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-                email: email.toLowerCase().trim(),
-                password,
+        if (existingUser) {
+            userId = existingUser.id
+        } else {
+            const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+                email: emailLower,
                 email_confirm: true,
             })
-
-            if (authError) return NextResponse.json({ error: 'خطأ في إنشاء الحساب' }, { status: 400 })
-
-            return NextResponse.json({ success: true, user_id: authData.user.id })
+            if (createError) {
+                return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
+            }
+            userId = newUser.user.id
         }
 
-        if (action === 'login') {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: email.toLowerCase().trim(),
-                password
-            })
-            if (error) return NextResponse.json({ error: 'البريد أو كلمة المرور غير صحيحة' }, { status: 400 })
-            return NextResponse.json({ success: true, data })
+        // Generate magic link for session
+        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+            type: 'magiclink',
+            email: emailLower,
+        })
+
+        if (linkError) {
+            return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
         }
 
-        return NextResponse.json({ error: 'طلب غير صحيح' }, { status: 400 })
+        return NextResponse.json({
+            success: true,
+            userId,
+            token_hash: linkData.properties?.hashed_token,
+            action_link: linkData.properties?.action_link,
+        })
     } catch (error) {
-        console.error('Auth error:', error.message)
-        return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 })
+        console.error('Verify OTP error:', error)
+        return NextResponse.json({ error: 'Server error' }, { status: 500 })
     }
 }
