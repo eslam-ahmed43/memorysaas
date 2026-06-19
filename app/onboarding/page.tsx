@@ -21,15 +21,17 @@ const industries = [
     'Education / تعليم',
     'Retail / تجزئة',
     'Manufacturing / تصنيع',
+    'Consulting / استشارات',
     'Other / أخرى',
 ]
 
 export default function Onboarding() {
     const [step, setStep] = useState(1)
+    const [accountType, setAccountType] = useState<'company' | 'individual'>('company')
     const [companyName, setCompanyName] = useState('')
     const [industry, setIndustry] = useState('')
     const [country, setCountry] = useState('')
-    const [language, setLanguage] = useState('ar')
+    const [language, setLanguage] = useState('en')
     const [companySize, setCompanySize] = useState('startup')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -40,7 +42,11 @@ export default function Onboarding() {
         setError('')
         try {
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) { router.push('/'); return }
+            if (!user) { router.push('/login'); return }
+
+            const name = accountType === 'individual'
+                ? (user.email?.split('@')[0] || 'My Workspace')
+                : companyName
 
             const res = await fetch('/api/onboarding', {
                 method: 'POST',
@@ -48,34 +54,36 @@ export default function Onboarding() {
                 body: JSON.stringify({
                     user_id: user.id,
                     email: user.email,
-                    company_name: companyName,
-                    industry,
+                    company_name: name,
+                    industry: accountType === 'individual' ? 'Individual / فرد' : industry,
                     country,
                     language,
-                    company_size: companySize,
+                    company_size: accountType === 'individual' ? 'individual' : companySize,
                 }),
             })
             const data = await res.json()
             if (data.error) { setError(data.error); return }
             router.push('/dashboard')
-        } catch (err: unknown) {
-            if (err instanceof Error) setError(err.message)
+        } catch (err: any) {
+            setError(err.message)
         } finally {
             setLoading(false)
         }
     }
+
+    const totalSteps = accountType === 'individual' ? 2 : 3
 
     return (
         <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
             <div className="w-full max-w-lg">
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-white mb-2">🧠 MemoryOS</h1>
-                    <p className="text-gray-400">Let's set up your company / هنجهز شركتك</p>
+                    <p className="text-gray-400">Let's set up your workspace</p>
                 </div>
 
                 <div className="flex gap-2 mb-8 justify-center">
-                    {[1, 2, 3].map(s => (
-                        <div key={s} className={`w-10 h-2 rounded-full transition-all ${s <= step ? 'bg-purple-600' : 'bg-gray-700'}`} />
+                    {Array.from({ length: totalSteps }).map((_, s) => (
+                        <div key={s} className={`h-2 rounded-full transition-all ${s < step ? 'w-10 bg-purple-600' : 'w-10 bg-gray-700'}`} />
                     ))}
                 </div>
 
@@ -83,91 +91,97 @@ export default function Onboarding() {
 
                     {step === 1 && (
                         <div>
-                            <h2 className="text-xl font-bold text-white mb-6">Company Info / معلومات الشركة</h2>
-                            <input
-                                type="text"
-                                placeholder="Company Name / اسم الشركة"
-                                value={companyName}
-                                onChange={e => setCompanyName(e.target.value)}
-                                className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-4 border border-gray-700 focus:outline-none focus:border-purple-500"
-                            />
-                            <select
-                                value={industry}
-                                onChange={e => setIndustry(e.target.value)}
-                                className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-4 border border-gray-700 focus:outline-none focus:border-purple-500"
-                            >
-                                <option value="">Select Industry / اختار المجال</option>
-                                {industries.map(i => <option key={i} value={i}>{i}</option>)}
+                            <h2 className="text-xl font-bold text-white mb-6">How will you use MemoryOS?</h2>
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                <button onClick={() => setAccountType('individual')}
+                                    className={`p-5 rounded-xl border-2 text-center transition-all ${accountType === 'individual' ? 'border-purple-600 bg-purple-600/10' : 'border-gray-700 hover:border-gray-500'}`}>
+                                    <div className="text-3xl mb-2">👤</div>
+                                    <div className="text-white font-medium text-sm">Individual</div>
+                                    <div className="text-gray-400 text-xs mt-1">Just me, tracking my own work</div>
+                                </button>
+                                <button onClick={() => setAccountType('company')}
+                                    className={`p-5 rounded-xl border-2 text-center transition-all ${accountType === 'company' ? 'border-purple-600 bg-purple-600/10' : 'border-gray-700 hover:border-gray-500'}`}>
+                                    <div className="text-3xl mb-2">🏢</div>
+                                    <div className="text-white font-medium text-sm">Company</div>
+                                    <div className="text-gray-400 text-xs mt-1">Team with multiple members</div>
+                                </button>
+                            </div>
+
+                            {accountType === 'company' && (
+                                <>
+                                    <input type="text" placeholder="Company Name" value={companyName}
+                                        onChange={e => setCompanyName(e.target.value)}
+                                        className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 border border-gray-700 focus:outline-none focus:border-purple-500" />
+                                    <select value={industry} onChange={e => setIndustry(e.target.value)}
+                                        className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-4 border border-gray-700 focus:outline-none focus:border-purple-500">
+                                        <option value="">Select Industry</option>
+                                        {industries.map(i => <option key={i} value={i}>{i}</option>)}
+                                    </select>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            { key: 'startup', label: '🚀 Startup', sub: '1-10' },
+                                            { key: 'small', label: '🏢 Small', sub: '11-100' },
+                                            { key: 'enterprise', label: '🏭 Enterprise', sub: '100+' },
+                                        ].map(s => (
+                                            <button key={s.key} onClick={() => setCompanySize(s.key)}
+                                                className={`py-3 rounded-lg text-sm font-medium border transition-all ${companySize === s.key ? 'bg-purple-600 border-purple-600 text-white' : 'border-gray-700 text-gray-400 hover:border-purple-500'}`}>
+                                                {s.label}<br /><span className="text-xs opacity-70">{s.sub}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {step === 2 && (
+                        <div>
+                            <h2 className="text-xl font-bold text-white mb-6">Where are you located?</h2>
+                            <select value={country} onChange={e => setCountry(e.target.value)}
+                                className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 border border-gray-700 focus:outline-none focus:border-purple-500">
+                                <option value="">Select Country</option>
+                                {countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
                             </select>
-                            <div className="grid grid-cols-3 gap-3">
-                                {['startup', 'small', 'enterprise'].map(size => (
-                                    <button
-                                        key={size}
-                                        onClick={() => setCompanySize(size)}
-                                        className={`py-3 rounded-lg text-sm font-medium border transition-all ${companySize === size ? 'bg-purple-600 border-purple-600 text-white' : 'border-gray-700 text-gray-400 hover:border-purple-500'}`}
-                                    >
-                                        {size === 'startup' ? '🚀 Startup\n1-10' : size === 'small' ? '🏢 Small\n11-100' : '🏭 Enterprise\n100+'}
+                        </div>
+                    )}
+
+                    {step === 3 && accountType === 'company' && (
+                        <div>
+                            <h2 className="text-xl font-bold text-white mb-6">Preferred Language</h2>
+                            <div className="grid grid-cols-2 gap-4">
+                                {[
+                                    { key: 'en', flag: '🇬🇧', label: 'English', sub: 'الإنجليزية' },
+                                    { key: 'ar', flag: '🇸🇦', label: 'العربية', sub: 'Arabic' },
+                                ].map(l => (
+                                    <button key={l.key} onClick={() => setLanguage(l.key)}
+                                        className={`p-6 rounded-xl border-2 transition-all text-center ${language === l.key ? 'border-purple-600 bg-purple-600/10' : 'border-gray-700 hover:border-purple-500'}`}>
+                                        <div className="text-3xl mb-2">{l.flag}</div>
+                                        <div className="text-white font-medium">{l.label}</div>
+                                        <div className="text-gray-400 text-sm">{l.sub}</div>
                                     </button>
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {step === 2 && (
-                        <div>
-                            <h2 className="text-xl font-bold text-white mb-6">Location / الموقع</h2>
-                            <select
-                                value={country}
-                                onChange={e => setCountry(e.target.value)}
-                                className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-4 border border-gray-700 focus:outline-none focus:border-purple-500"
-                            >
-                                <option value="">Select Country / اختار الدولة</option>
-                                {countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
-                            </select>
-                        </div>
-                    )}
-
-                    {step === 3 && (
-                        <div>
-                            <h2 className="text-xl font-bold text-white mb-6">Language / اللغة</h2>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button
-                                    onClick={() => setLanguage('ar')}
-                                    className={`p-6 rounded-xl border-2 transition-all text-center ${language === 'ar' ? 'border-purple-600 bg-purple-600/10' : 'border-gray-700 hover:border-purple-500'}`}
-                                >
-                                    <div className="text-3xl mb-2">🇸🇦</div>
-                                    <div className="text-white font-medium">العربية</div>
-                                    <div className="text-gray-400 text-sm">Arabic</div>
-                                </button>
-                                <button
-                                    onClick={() => setLanguage('en')}
-                                    className={`p-6 rounded-xl border-2 transition-all text-center ${language === 'en' ? 'border-purple-600 bg-purple-600/10' : 'border-gray-700 hover:border-purple-500'}`}
-                                >
-                                    <div className="text-3xl mb-2">🇬🇧</div>
-                                    <div className="text-white font-medium">English</div>
-                                    <div className="text-gray-400 text-sm">الإنجليزية</div>
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {error && <p className="text-red-400 text-sm mt-4 text-center">{error}</p>}
+                    {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
 
                     <div className="flex gap-3 mt-8">
                         {step > 1 && (
-                            <button
-                                onClick={() => setStep(s => s - 1)}
-                                className="flex-1 py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-all"
-                            >
-                                Back / رجوع
+                            <button onClick={() => setStep(s => s - 1)}
+                                className="flex-1 py-3 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-all">
+                                ← Back
                             </button>
                         )}
                         <button
-                            onClick={() => step < 3 ? setStep(s => s + 1) : handleSubmit()}
-                            disabled={loading || (step === 1 && !companyName) || (step === 2 && !country)}
-                            className="flex-1 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-all disabled:opacity-50"
-                        >
-                            {loading ? '...' : step < 3 ? 'Next / التالي' : 'Get Started / ابدأ'}
+                            onClick={() => step < totalSteps ? setStep(s => s + 1) : handleSubmit()}
+                            disabled={
+                                loading ||
+                                (step === 1 && accountType === 'company' && !companyName) ||
+                                (step === 2 && !country)
+                            }
+                            className="flex-1 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-all disabled:opacity-50">
+                            {loading ? 'Setting up...' : step < totalSteps ? 'Next →' : 'Get Started 🚀'}
                         </button>
                     </div>
                 </div>
