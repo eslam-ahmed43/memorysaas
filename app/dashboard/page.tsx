@@ -196,6 +196,7 @@ export default function Dashboard() {
     }
 
     const navItems = [
+        { id: 'overview', icon: '⚡', label: lang === 'ar' ? 'نظرة عامة' : 'Overview' },
         { id: 'chat', icon: '💬', label: lang === 'ar' ? 'اسأل الذاكرة' : 'Ask Memory' },
         { id: 'intelligence', icon: '🎯', label: lang === 'ar' ? 'الذكاء التنفيذي' : 'Intelligence' },
         { id: 'briefing', icon: '📊', label: lang === 'ar' ? 'التقرير الأسبوعي' : 'Briefing' },
@@ -296,6 +297,126 @@ export default function Dashboard() {
                 {/* CONTENT */}
                 <div style={s.content}>
 
+                    {activeTab === 'overview' && (
+                        <div>
+                            {/* WELCOME */}
+                            <div style={{ marginBottom: '24px' }}>
+                                <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '4px' }}>
+                                    {lang === 'ar' ? `مرحباً، ${profile?.full_name?.split(' ')[0] || 'يا مدير'} 👋` : `Welcome back, ${profile?.full_name?.split(' ')[0] || 'there'} 👋`}
+                                </h2>
+                                <p style={{ fontSize: '13px', color: '#6b7280' }}>
+                                    {company?.name} · {new Date().toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                </p>
+                            </div>
+
+                            {/* KEY METRICS */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+                                {[
+                                    { icon: '📄', label: lang === 'ar' ? 'الوثائق' : 'Documents', value: documents.length, color: '#7C3AED', sub: lang === 'ar' ? 'ملف مرفوع' : 'files uploaded' },
+                                    { icon: '⚖️', label: lang === 'ar' ? 'القرارات' : 'Decisions', value: decisions.length, color: '#0891b2', sub: lang === 'ar' ? 'قرار مسجل' : 'recorded' },
+                                    { icon: '📅', label: lang === 'ar' ? 'الأحداث' : 'Events', value: timeline.length, color: '#059669', sub: lang === 'ar' ? 'حدث في التايم لاين' : 'in timeline' },
+                                    { icon: '🚨', label: lang === 'ar' ? 'التنبيهات' : 'Alerts', value: alerts.length, color: alerts.length > 0 ? '#ef4444' : '#6b7280', sub: lang === 'ar' ? 'تنبيه نشط' : 'active' },
+                                ].map((stat, i) => (
+                                    <div key={i} style={{ background: '#0D1117', border: `1px solid ${stat.value > 0 && i === 3 ? '#450a0a' : '#1a2035'}`, borderRadius: '12px', padding: '20px' }}>
+                                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>{stat.icon}</div>
+                                        <div style={{ fontSize: '32px', fontWeight: '800', color: stat.color, lineHeight: 1 }}>{stat.value}</div>
+                                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>{stat.label}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                {/* RECENT ALERTS */}
+                                <div style={{ background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444' }}>🚨 {lang === 'ar' ? 'آخر التنبيهات' : 'Recent Alerts'}</span>
+                                        <button onClick={() => setActiveTab('alerts')} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '12px', cursor: 'pointer' }}>
+                                            {lang === 'ar' ? 'عرض الكل ←' : 'View all →'}
+                                        </button>
+                                    </div>
+                                    {alerts.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280', fontSize: '13px' }}>✅ {lang === 'ar' ? 'لا توجد تنبيهات' : 'No active alerts'}</div>
+                                    ) : alerts.slice(0, 3).map((a: any) => (
+                                        <div key={a.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
+                                            <div style={{ width: '8px', height: '8px', background: a.severity === 'high' ? '#ef4444' : '#fbbf24', borderRadius: '50%', marginTop: '5px', flexShrink: 0 }}></div>
+                                            <div>
+                                                <div style={{ fontSize: '13px', fontWeight: '600' }}>{a.title}</div>
+                                                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{a.type}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* RECENT DECISIONS */}
+                                <div style={{ background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#0891b2' }}>⚖️ {lang === 'ar' ? 'آخر القرارات' : 'Recent Decisions'}</span>
+                                        <button onClick={() => setActiveTab('decisions')} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '12px', cursor: 'pointer' }}>
+                                            {lang === 'ar' ? 'عرض الكل ←' : 'View all →'}
+                                        </button>
+                                    </div>
+                                    {decisions.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280', fontSize: '13px' }}>⚖️ {lang === 'ar' ? 'لا توجد قرارات مسجلة' : 'No decisions yet'}</div>
+                                    ) : decisions.slice(0, 3).map((d: any) => (
+                                        <div key={d.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
+                                            <div style={{ width: '8px', height: '8px', background: '#0891b2', borderRadius: '50%', marginTop: '5px', flexShrink: 0 }}></div>
+                                            <div>
+                                                <div style={{ fontSize: '13px', fontWeight: '600' }}>{d.title}</div>
+                                                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{new Date(d.created_at).toLocaleDateString()}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* INTELLIGENCE QUICK VIEW */}
+                            {intelligence ? (
+                                <div style={{ background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#a78bfa' }}>🎯 {lang === 'ar' ? 'صحة الشركة' : 'Company Health'}</span>
+                                        <button onClick={() => setActiveTab('intelligence')} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '12px', cursor: 'pointer' }}>
+                                            {lang === 'ar' ? 'تفاصيل ←' : 'Details →'}
+                                        </button>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                                        {[
+                                            { label: lang === 'ar' ? 'المعرفة' : 'Knowledge', value: intelligence.scores?.knowledge_score || 0, color: '#7C3AED' },
+                                            { label: lang === 'ar' ? 'الفريق' : 'Team', value: intelligence.scores?.team_score || 0, color: '#0891b2' },
+                                            { label: lang === 'ar' ? 'النشاط' : 'Activity', value: intelligence.scores?.activity_score || 0, color: '#059669' },
+                                            { label: lang === 'ar' ? 'الكلي' : 'Overall', value: intelligence.scores?.overall_score || 0, color: '#d97706' },
+                                        ].map((sc, i) => (
+                                            <div key={i} style={{ textAlign: 'center' }}>
+                                                <div style={{ position: 'relative', width: '64px', height: '64px', margin: '0 auto 8px' }}>
+                                                    <svg viewBox="0 0 36 36" style={{ width: '64px', height: '64px', transform: 'rotate(-90deg)' }}>
+                                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1a2035" strokeWidth="3" />
+                                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke={sc.color} strokeWidth="3"
+                                                            strokeDasharray={`${sc.value} 100`} strokeLinecap="round" />
+                                                    </svg>
+                                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '700', color: sc.color }}>{sc.value}%</div>
+                                                </div>
+                                                <div style={{ fontSize: '11px', color: '#6b7280' }}>{sc.label}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {intelligence.summary && (
+                                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #1a2035', fontSize: '13px', color: '#9ca3af', lineHeight: '1.6' }}>
+                                            {intelligence.summary.substring(0, 200)}...
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: '32px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '32px', marginBottom: '12px' }}>🎯</div>
+                                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>{lang === 'ar' ? 'لم يتم تحليل الشركة بعد' : 'Company not analyzed yet'}</div>
+                                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px' }}>{lang === 'ar' ? 'ارفع وثائق وشغّل التحليل التنفيذي' : 'Upload documents and run executive analysis'}</div>
+                                    <button onClick={() => { setActiveTab('intelligence'); loadIntelligence() }} style={s.btn}>
+                                        {lang === 'ar' ? 'تحليل الآن ←' : 'Analyze Now →'}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* CHAT */}
                     {activeTab === 'chat' && (
                         <div>
@@ -360,12 +481,20 @@ export default function Dashboard() {
                                                 { label: lang === 'ar' ? 'الكلي' : 'Overall', value: intelligence.scores.overall_score, color: '#d97706' },
                                             ].map((sc, i) => (
                                                 <div key={i} style={{ ...s.stat, textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '32px', fontWeight: '800', color: sc.color }}>{sc.value}%</div>
-                                                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{sc.label}</div>
+                                                    <div style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto 12px' }}>
+                                                        <svg viewBox="0 0 36 36" style={{ width: '80px', height: '80px', transform: 'rotate(-90deg)' }}>
+                                                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1a2035" strokeWidth="2.5" />
+                                                            <circle cx="18" cy="18" r="15.9" fill="none" stroke={sc.color} strokeWidth="2.5"
+                                                                strokeDasharray={`${sc.value} 100`} strokeLinecap="round" />
+                                                        </svg>
+                                                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: '800', color: sc.color }}>{sc.value}%</div>
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: '#6b7280' }}>{sc.label}</div>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
+
                                     {intelligence.summary && (
                                         <div style={{ ...s.card, borderColor: '#4C1D95', background: '#0a0520' }}>
                                             <div style={{ fontSize: '12px', color: '#a78bfa', marginBottom: '8px', fontWeight: '600' }}>📋 {lang === 'ar' ? 'الملخص التنفيذي' : 'Executive Summary'}</div>
