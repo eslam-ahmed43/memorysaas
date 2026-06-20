@@ -21,7 +21,7 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `https://memorysaas-qjg3.vercel.app/auth/exchange`,
+                redirectTo: 'https://memorysaas-qjg3.vercel.app/auth/exchange',
             }
         })
         if (error) setError(error.message)
@@ -32,14 +32,12 @@ export default function LoginPage() {
         if (!email.trim()) { setError('Enter your email'); return }
         setLoading(true)
         setError('')
-        const res = await fetch('/api/auth/send-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+        const { error } = await supabase.auth.signInWithOtp({
+            email: email.toLowerCase().trim(),
+            options: { shouldCreateUser: true }
         })
-        const data = await res.json()
-        if (data.error) {
-            setError(data.error)
+        if (error) {
+            setError(error.message)
         } else {
             setInfo(`Code sent to ${email}`)
             setMode('otp_verify')
@@ -51,42 +49,21 @@ export default function LoginPage() {
         if (otp.length < 6) { setError('Enter the 6-digit code'); return }
         setLoading(true)
         setError('')
-        const res = await fetch('/api/auth/verify-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, otp })
+        const { data, error } = await supabase.auth.verifyOtp({
+            email: email.toLowerCase().trim(),
+            token: otp.trim(),
+            type: 'email'
         })
-        const data = await res.json()
-        if (data.error) {
-            setError(data.error)
+        if (error) {
+            setError('Invalid or expired code')
             setLoading(false)
             return
         }
-
-        // Sign in using the magic link token
-        if (data.action_link) {
-            const url = new URL(data.action_link)
-            const tokenHash = url.searchParams.get('token_hash')
-            const type = url.searchParams.get('type') as any
-            if (tokenHash) {
-                const { data: session, error: signInError } = await supabase.auth.verifyOtp({
-                    token_hash: tokenHash,
-                    type: type || 'email',
-                })
-                if (signInError) {
-                    setError('Login failed. Try again.')
-                    setLoading(false)
-                    return
-                }
-                if (session.user) {
-                    const profileRes = await fetch(`/api/profile?user_id=${session.user.id}`)
-                    const profile = await profileRes.json()
-                    router.push(profile.profile ? '/dashboard' : '/onboarding')
-                    return
-                }
-            }
+        if (data.user) {
+            const res = await fetch(`/api/profile?user_id=${data.user.id}`)
+            const profile = await res.json()
+            router.push(profile.profile ? '/dashboard' : '/onboarding')
         }
-        setError('Login failed. Try again.')
         setLoading(false)
     }
 
@@ -100,7 +77,6 @@ export default function LoginPage() {
                 </div>
 
                 <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800">
-
                     {mode === 'choice' && (
                         <div className="space-y-4">
                             <button onClick={handleGoogleLogin} disabled={googleLoading}
@@ -113,13 +89,11 @@ export default function LoginPage() {
                                 </svg>
                                 {googleLoading ? 'Connecting...' : 'Continue with Google'}
                             </button>
-
                             <div className="flex items-center gap-3">
                                 <div className="flex-1 h-px bg-gray-700" />
                                 <span className="text-gray-500 text-sm">or</span>
                                 <div className="flex-1 h-px bg-gray-700" />
                             </div>
-
                             <button onClick={() => { setMode('otp_email'); setError('') }}
                                 className="w-full flex items-center justify-center gap-2 border border-gray-700 hover:border-purple-500 text-gray-300 hover:text-white font-medium py-3 rounded-xl transition-all">
                                 ✉️ Continue with Email
