@@ -41,11 +41,21 @@ export default function Dashboard() {
     const [docSearch, setDocSearch] = useState('')
     const [companyEdit, setCompanyEdit] = useState({ name: '', industry: '', language: '', country: '' })
     const [savingCompany, setSavingCompany] = useState(false)
+    const [showAlertsDropdown, setShowAlertsDropdown] = useState(false)
     const router = useRouter()
 
     const isRTL = lang === 'ar'
 
     useEffect(() => { loadData() }, [])
+
+    useEffect(() => {
+        function handleClick(e: MouseEvent) {
+            const target = e.target as HTMLElement
+            if (!target.closest('[data-bell]')) setShowAlertsDropdown(false)
+        }
+        document.addEventListener('mousedown', handleClick)
+        return () => document.removeEventListener('mousedown', handleClick)
+    }, [])
 
     function showToast(message: string, type: 'success' | 'error' | 'info' = 'success') {
         setToast({ message, type })
@@ -62,12 +72,7 @@ export default function Dashboard() {
             setProfile(data.profile)
             setCompany(data.company)
             setLang(data.company?.language === 'ar' ? 'ar' : 'en')
-            setCompanyEdit({
-                name: data.company?.name || '',
-                industry: data.company?.industry || '',
-                language: data.company?.language || 'en',
-                country: data.company?.country || '',
-            })
+            setCompanyEdit({ name: data.company?.name || '', industry: data.company?.industry || '', language: data.company?.language || 'en', country: data.company?.country || '' })
             loadDocuments(data.profile.company_id)
             loadConversations(data.profile.company_id)
             loadTimeline(data.profile.company_id)
@@ -78,82 +83,54 @@ export default function Dashboard() {
         }
     }
 
-    async function loadDocuments(cid: string) {
-        const res = await fetch(`/api/documents?company_id=${cid}`)
-        const data = await res.json()
-        if (data.documents) setDocuments(data.documents)
-    }
-    async function loadConversations(cid: string) {
-        const res = await fetch(`/api/chat?company_id=${cid}`)
-        const data = await res.json()
-        if (data.conversations) setConversations(data.conversations)
-    }
-    async function loadTimeline(cid: string) {
-        const res = await fetch(`/api/timeline?company_id=${cid}`)
-        const data = await res.json()
-        if (data.events) setTimeline(data.events)
-    }
+    async function loadDocuments(cid: string) { const r = await fetch(`/api/documents?company_id=${cid}`); const d = await r.json(); if (d.documents) setDocuments(d.documents) }
+    async function loadConversations(cid: string) { const r = await fetch(`/api/chat?company_id=${cid}`); const d = await r.json(); if (d.conversations) setConversations(d.conversations) }
+    async function loadTimeline(cid: string) { const r = await fetch(`/api/timeline?company_id=${cid}`); const d = await r.json(); if (d.events) setTimeline(d.events) }
     async function loadTeam(cid: string) {
         const [m, c] = await Promise.all([fetch(`/api/team?company_id=${cid}`), fetch(`/api/invite?company_id=${cid}`)])
         const md = await m.json(); const cd = await c.json()
         if (md.members) setMembers(md.members)
         if (cd.codes) setInviteCodes(cd.codes)
     }
-    async function loadDecisions(cid: string) {
-        const res = await fetch(`/api/decisions?company_id=${cid}`)
-        const data = await res.json()
-        if (data.decisions) setDecisions(data.decisions)
-    }
-    async function loadAlerts(cid: string) {
-        const res = await fetch(`/api/alerts?company_id=${cid}`)
-        const data = await res.json()
-        if (data.alerts) setAlerts(data.alerts)
-    }
-    async function loadKpis(cid: string) {
-        const res = await fetch(`/api/kpis?company_id=${cid}`)
-        const data = await res.json()
-        if (data.kpis) setKpis(data.kpis)
-    }
+    async function loadDecisions(cid: string) { const r = await fetch(`/api/decisions?company_id=${cid}`); const d = await r.json(); if (d.decisions) setDecisions(d.decisions) }
+    async function loadAlerts(cid: string) { const r = await fetch(`/api/alerts?company_id=${cid}`); const d = await r.json(); if (d.alerts) setAlerts(d.alerts) }
+    async function loadKpis(cid: string) { const r = await fetch(`/api/kpis?company_id=${cid}`); const d = await r.json(); if (d.kpis) setKpis(d.kpis) }
+
     async function loadIntelligence(force = false) {
         if (!profile) return
         setLoadingIntelligence(true)
-        const res = await fetch('/api/intelligence', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_id: profile.company_id, force_refresh: force })
-        })
+        const res = await fetch('/api/intelligence', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company_id: profile.company_id, force_refresh: force }) })
         const data = await res.json()
         if (data.intelligence) setIntelligence(data.intelligence)
         setLoadingIntelligence(false)
     }
+
     async function loadBriefing() {
         if (!profile) return
         setLoadingBriefing(true)
-        const res = await fetch('/api/briefing', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_id: profile.company_id })
-        })
+        const res = await fetch('/api/briefing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company_id: profile.company_id }) })
         const data = await res.json()
         if (data.briefing) setBriefing(data.briefing)
         setLoadingBriefing(false)
     }
+
     async function handleAddDecision() {
         if (!newDecision.title.trim() || !profile) return
         setAddingDecision(true)
-        await fetch('/api/decisions', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_id: profile.company_id, title: newDecision.title, description: newDecision.description, made_by: user.id })
-        })
+        await fetch('/api/decisions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company_id: profile.company_id, title: newDecision.title, description: newDecision.description, made_by: user.id }) })
         await loadDecisions(profile.company_id)
         await loadAlerts(profile.company_id)
         setNewDecision({ title: '', description: '' })
         showToast(lang === 'ar' ? 'تم تسجيل القرار!' : 'Decision recorded!')
         setAddingDecision(false)
     }
+
     async function handleResolveAlert(id: string) {
         await fetch('/api/alerts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
         setAlerts(prev => prev.filter(a => a.id !== id))
         showToast(lang === 'ar' ? 'تم حل التنبيه!' : 'Alert resolved!')
     }
+
     async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0]
         if (!file || !profile) return
@@ -166,106 +143,76 @@ export default function Dashboard() {
         showToast(lang === 'ar' ? 'تم رفع الملف!' : 'Document uploaded!')
         setUploading(false)
     }
+
     async function handleAsk() {
         if (!question.trim() || !profile) return
         setAsking(true); setAnswer(''); setSources([])
-        const res = await fetch('/api/chat', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, company_id: profile.company_id, user_id: user.id })
-        })
+        const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, company_id: profile.company_id, user_id: user.id }) })
         const data = await res.json()
         if (data.answer) { setAnswer(data.answer); setSources(data.sources || []); loadConversations(profile.company_id) }
         setAsking(false)
     }
+
     async function handleDelete(id: string) {
         if (!confirm(lang === 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?')) return
         const res = await fetch(`/api/documents/${id}`, { method: 'DELETE' })
         const data = await res.json()
-        if (data.success) {
-            setDocuments(prev => prev.filter(d => d.id !== id))
-            showToast(lang === 'ar' ? 'تم الحذف!' : 'Deleted!', 'info')
-        }
+        if (data.success) { setDocuments(prev => prev.filter(d => d.id !== id)); showToast(lang === 'ar' ? 'تم الحذف!' : 'Deleted!', 'info') }
     }
+
     async function handleGenerateInvite() {
         if (!profile) return
         setGeneratingCode(true)
-        await fetch('/api/invite', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_id: profile.company_id, role: newMemberRole, created_by: user.id })
-        })
+        await fetch('/api/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company_id: profile.company_id, role: newMemberRole, created_by: user.id }) })
         await loadTeam(profile.company_id)
-        showToast(lang === 'ar' ? 'تم إنشاء الكود!' : 'Invite code generated!')
+        showToast(lang === 'ar' ? 'تم إنشاء الكود!' : 'Code generated!')
         setGeneratingCode(false)
     }
+
     async function handleRootCause() {
         if (!rootCauseQuery.trim() || !profile) return
         setLoadingRootCause(true); setRootCause(null)
-        const res = await fetch('/api/rootcause', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_id: profile.company_id, event: rootCauseQuery })
-        })
+        const res = await fetch('/api/rootcause', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company_id: profile.company_id, event: rootCauseQuery }) })
         const data = await res.json()
         if (data.analysis) setRootCause(data.analysis)
         setLoadingRootCause(false)
     }
+
     async function loadWhatChanged() {
         if (!profile) return
         setLoadingWhatChanged(true)
-        const res = await fetch('/api/whatchanged', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_id: profile.company_id })
-        })
+        const res = await fetch('/api/whatchanged', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company_id: profile.company_id }) })
         const data = await res.json()
         if (data.analysis) setWhatChanged(data.analysis)
         setLoadingWhatChanged(false)
     }
+
     async function handleAddKpi() {
         if (!newKpi.name || !newKpi.value || !profile) return
         setAddingKpi(true)
-        const res = await fetch('/api/kpis', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                company_id: profile.company_id,
-                name: newKpi.name,
-                value: parseFloat(newKpi.value),
-                previous_value: newKpi.previous_value ? parseFloat(newKpi.previous_value) : null,
-                unit: newKpi.unit
-            })
-        })
+        const res = await fetch('/api/kpis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company_id: profile.company_id, name: newKpi.name, value: parseFloat(newKpi.value), previous_value: newKpi.previous_value ? parseFloat(newKpi.previous_value) : null, unit: newKpi.unit }) })
         const data = await res.json()
-        if (data.success) {
-            await loadKpis(profile.company_id)
-            setNewKpi({ name: '', value: '', previous_value: '', unit: '' })
-            showToast(lang === 'ar' ? 'تم إضافة المؤشر!' : 'KPI added!')
-        }
+        if (data.success) { await loadKpis(profile.company_id); setNewKpi({ name: '', value: '', previous_value: '', unit: '' }); showToast(lang === 'ar' ? 'تم إضافة المؤشر!' : 'KPI added!') }
         setAddingKpi(false)
     }
+
     async function handleDeleteKpi(id: string) {
         await fetch(`/api/kpis?id=${id}`, { method: 'DELETE' })
         setKpis(prev => prev.filter(k => k.id !== id))
         showToast(lang === 'ar' ? 'تم الحذف' : 'Deleted', 'info')
     }
+
     async function handleSaveCompany() {
         if (!profile) return
         setSavingCompany(true)
-        const res = await fetch('/api/company', {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_id: profile.company_id, ...companyEdit })
-        })
+        const res = await fetch('/api/company', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company_id: profile.company_id, ...companyEdit }) })
         const data = await res.json()
-        if (data.success) {
-            setCompany(data.company)
-            setLang(data.company.language === 'ar' ? 'ar' : 'en')
-            showToast(lang === 'ar' ? 'تم الحفظ!' : 'Settings saved!')
-        } else {
-            showToast(lang === 'ar' ? 'حدث خطأ' : 'Error saving', 'error')
-        }
+        if (data.success) { setCompany(data.company); setLang(data.company.language === 'ar' ? 'ar' : 'en'); showToast(lang === 'ar' ? 'تم الحفظ!' : 'Saved!') }
+        else showToast(lang === 'ar' ? 'حدث خطأ' : 'Error', 'error')
         setSavingCompany(false)
     }
-    async function handleLogout() {
-        await supabase.auth.signOut()
-        router.push('/login')
-    }
+
+    async function handleLogout() { await supabase.auth.signOut(); router.push('/login') }
 
     const navItems = [
         { id: 'overview', icon: '⚡', label: lang === 'ar' ? 'نظرة عامة' : 'Overview' },
@@ -273,7 +220,7 @@ export default function Dashboard() {
         { id: 'intelligence', icon: '🎯', label: lang === 'ar' ? 'الذكاء التنفيذي' : 'Intelligence' },
         { id: 'briefing', icon: '📊', label: lang === 'ar' ? 'التقرير الأسبوعي' : 'Briefing' },
         { id: 'decisions', icon: '⚖️', label: lang === 'ar' ? 'القرارات' : 'Decisions' },
-        { id: 'alerts', icon: '🚨', label: lang === 'ar' ? 'التنبيهات' : 'Alerts', badge: alerts.length },
+        { id: 'alerts', icon: '🚨', label: lang === 'ar' ? 'التنبيهات' : 'Alerts' },
         { id: 'rootcause', icon: '🔍', label: lang === 'ar' ? 'تحليل الأسباب' : 'Root Cause' },
         { id: 'whatchanged', icon: '🔄', label: lang === 'ar' ? 'ما الذي تغير' : 'What Changed' },
         { id: 'kpis', icon: '📈', label: lang === 'ar' ? 'المؤشرات' : 'KPIs' },
@@ -286,17 +233,8 @@ export default function Dashboard() {
     const s = {
         wrap: { display: 'flex', minHeight: '100vh', background: '#080C14', color: '#fff', fontFamily: 'system-ui,-apple-system,sans-serif', direction: isRTL ? 'rtl' as const : 'ltr' as const },
         sidebar: { width: '220px', minHeight: '100vh', background: '#0D1117', borderRight: '1px solid #1a2035', display: 'flex', flexDirection: 'column' as const, flexShrink: 0 },
-        logo: { padding: '20px 16px', borderBottom: '1px solid #1a2035', display: 'flex', alignItems: 'center', gap: '10px' },
-        logoBox: { width: '32px', height: '32px', background: '#7C3AED', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' },
         nav: { flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column' as const, gap: '2px', overflowY: 'auto' as const },
-        navItem: (active: boolean) => ({
-            display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '8px',
-            cursor: 'pointer', fontSize: '13px', fontWeight: active ? '600' : '400',
-            background: active ? '#1a0a2e' : 'transparent',
-            color: active ? '#a78bfa' : '#6b7280',
-            border: active ? '1px solid #4C1D95' : '1px solid transparent',
-            transition: 'all 0.15s',
-        }),
+        navItem: (active: boolean) => ({ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: active ? '600' : '400', background: active ? '#1a0a2e' : 'transparent', color: active ? '#a78bfa' : '#6b7280', border: active ? '1px solid #4C1D95' : '1px solid transparent', transition: 'all 0.15s' }),
         main: { flex: 1, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' },
         topbar: { background: '#0D1117', borderBottom: '1px solid #1a2035', padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
         content: { flex: 1, padding: '24px', overflowY: 'auto' as const },
@@ -310,12 +248,32 @@ export default function Dashboard() {
 
     const filteredDocs = documents.filter(d => d.name.toLowerCase().includes(docSearch.toLowerCase()))
 
+    const ScoreCircle = ({ value, color }: { value: number, color: string }) => (
+        <div style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto 12px' }}>
+            <svg viewBox="0 0 36 36" style={{ width: '80px', height: '80px', transform: 'rotate(-90deg)' }}>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1a2035" strokeWidth="2.5" />
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke={color} strokeWidth="2.5" strokeDasharray={`${value} 100`} strokeLinecap="round" />
+            </svg>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: '800', color }}>{value}%</div>
+        </div>
+    )
+
+    const SmallCircle = ({ value, color }: { value: number, color: string }) => (
+        <div style={{ position: 'relative', width: '64px', height: '64px', margin: '0 auto 8px' }}>
+            <svg viewBox="0 0 36 36" style={{ width: '64px', height: '64px', transform: 'rotate(-90deg)' }}>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1a2035" strokeWidth="3" />
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke={color} strokeWidth="3" strokeDasharray={`${value} 100`} strokeLinecap="round" />
+            </svg>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '700', color }}>{value}%</div>
+        </div>
+    )
+
     return (
         <div style={s.wrap}>
             {/* SIDEBAR */}
             <div style={s.sidebar}>
-                <div style={s.logo}>
-                    <div style={s.logoBox}>🧠</div>
+                <div style={{ padding: '20px 16px', borderBottom: '1px solid #1a2035', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '32px', height: '32px', background: '#7C3AED', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🧠</div>
                     <div>
                         <div style={{ fontWeight: '700', fontSize: '14px' }}>MemoryOS</div>
                         <div style={{ fontSize: '11px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{company?.name}</div>
@@ -324,20 +282,14 @@ export default function Dashboard() {
                 <div style={s.nav}>
                     {navItems.map(item => (
                         <div key={item.id} style={s.navItem(activeTab === item.id)}
-                            onClick={() => {
-                                setActiveTab(item.id)
-                                if (item.id === 'intelligence' && !intelligence) loadIntelligence()
-                            }}>
+                            onClick={() => { setActiveTab(item.id); if (item.id === 'intelligence' && !intelligence) loadIntelligence() }}>
                             <span style={{ fontSize: '15px' }}>{item.icon}</span>
                             <span style={{ flex: 1 }}>{item.label}</span>
-                            {(item as any).badge > 0 && (
-                                <span style={{ background: '#ef4444', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '100px' }}>{(item as any).badge}</span>
-                            )}
                         </div>
                     ))}
                 </div>
                 <div style={{ padding: '12px 8px', borderTop: '1px solid #1a2035' }}>
-                    <div style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{ width: '30px', height: '30px', background: '#7C3AED', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', flexShrink: 0 }}>
                             {profile?.role === 'owner' ? '👑' : '👤'}
                         </div>
@@ -358,17 +310,65 @@ export default function Dashboard() {
                         <span style={{ fontSize: '16px' }}>{navItems.find(n => n.id === activeTab)?.icon}</span>
                         <span style={{ fontSize: '15px', fontWeight: '600' }}>{navItems.find(n => n.id === activeTab)?.label}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                         {[
                             { label: lang === 'ar' ? 'وثائق' : 'Docs', value: documents.length, color: '#7C3AED' },
                             { label: lang === 'ar' ? 'قرارات' : 'Decisions', value: decisions.length, color: '#0891b2' },
-                            { label: lang === 'ar' ? 'تنبيهات' : 'Alerts', value: alerts.length, color: alerts.length > 0 ? '#ef4444' : '#374151' },
                         ].map((stat, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                 <span style={{ fontSize: '15px', fontWeight: '700', color: stat.color }}>{stat.value}</span>
                                 <span style={{ fontSize: '11px', color: '#374151' }}>{stat.label}</span>
                             </div>
                         ))}
+
+                        {/* BELL */}
+                        <div style={{ position: 'relative' }} data-bell>
+                            <button onClick={() => setShowAlertsDropdown(p => !p)}
+                                style={{ background: alerts.length > 0 ? '#1a0505' : 'none', border: `1px solid ${alerts.length > 0 ? '#450a0a' : '#1a2035'}`, borderRadius: '8px', color: alerts.length > 0 ? '#f87171' : '#6b7280', cursor: 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', position: 'relative' }}>
+                                🔔
+                                {alerts.length > 0 && (
+                                    <span style={{ position: 'absolute', top: '-7px', right: '-7px', background: '#ef4444', color: '#fff', fontSize: '10px', fontWeight: '700', minWidth: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0D1117', padding: '0 3px' }}>
+                                        {alerts.length > 9 ? '9+' : alerts.length}
+                                    </span>
+                                )}
+                            </button>
+
+                            {showAlertsDropdown && (
+                                <div style={{ position: 'absolute', top: '44px', right: '0', width: '320px', background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 1000, overflow: 'hidden' }}>
+                                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #1a2035', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: '600' }}>
+                                            🔔 {lang === 'ar' ? 'التنبيهات' : 'Alerts'} {alerts.length > 0 && <span style={{ color: '#ef4444' }}>({alerts.length})</span>}
+                                        </span>
+                                        <button onClick={() => { setActiveTab('alerts'); setShowAlertsDropdown(false) }}
+                                            style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '11px', cursor: 'pointer' }}>
+                                            {lang === 'ar' ? 'عرض الكل ←' : 'View all →'}
+                                        </button>
+                                    </div>
+                                    <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                        {alerts.length === 0 ? (
+                                            <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
+                                                <div style={{ fontSize: '28px', marginBottom: '8px' }}>✅</div>
+                                                {lang === 'ar' ? 'لا توجد تنبيهات نشطة' : 'No active alerts'}
+                                            </div>
+                                        ) : alerts.map((a: any) => (
+                                            <div key={a.id} style={{ padding: '12px 16px', borderBottom: '1px solid #1a2035', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                                <div style={{ width: '8px', height: '8px', background: a.severity === 'high' ? '#ef4444' : '#fbbf24', borderRadius: '50%', marginTop: '5px', flexShrink: 0 }}></div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</div>
+                                                    <div style={{ fontSize: '11px', color: '#6b7280' }}>{a.type} · {a.severity}</div>
+                                                </div>
+                                                {profile?.role === 'owner' && (
+                                                    <button onClick={() => handleResolveAlert(a.id)}
+                                                        style={{ background: 'none', border: '1px solid #166534', color: '#4ade80', fontSize: '10px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                                        {lang === 'ar' ? 'حل' : 'Resolve'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -386,72 +386,54 @@ export default function Dashboard() {
                                     {company?.name} · {new Date().toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                 </p>
                             </div>
-
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
                                 {[
-                                    { icon: '📄', label: lang === 'ar' ? 'الوثائق' : 'Documents', value: documents.length, color: '#7C3AED' },
-                                    { icon: '⚖️', label: lang === 'ar' ? 'القرارات' : 'Decisions', value: decisions.length, color: '#0891b2' },
-                                    { icon: '📅', label: lang === 'ar' ? 'الأحداث' : 'Events', value: timeline.length, color: '#059669' },
-                                    { icon: '🚨', label: lang === 'ar' ? 'التنبيهات' : 'Alerts', value: alerts.length, color: alerts.length > 0 ? '#ef4444' : '#6b7280' },
+                                    { icon: '📄', label: lang === 'ar' ? 'الوثائق' : 'Documents', value: documents.length, color: '#7C3AED', tab: 'documents' },
+                                    { icon: '⚖️', label: lang === 'ar' ? 'القرارات' : 'Decisions', value: decisions.length, color: '#0891b2', tab: 'decisions' },
+                                    { icon: '📅', label: lang === 'ar' ? 'الأحداث' : 'Events', value: timeline.length, color: '#059669', tab: 'timeline' },
+                                    { icon: '🚨', label: lang === 'ar' ? 'التنبيهات' : 'Alerts', value: alerts.length, color: alerts.length > 0 ? '#ef4444' : '#6b7280', tab: 'alerts' },
                                 ].map((stat, i) => (
-                                    <div key={i} style={{ background: '#0D1117', border: `1px solid ${i === 3 && alerts.length > 0 ? '#450a0a' : '#1a2035'}`, borderRadius: '12px', padding: '20px', cursor: 'pointer' }}
-                                        onClick={() => setActiveTab(['documents', 'decisions', 'timeline', 'alerts'][i])}>
+                                    <div key={i} onClick={() => setActiveTab(stat.tab)}
+                                        style={{ background: '#0D1117', border: `1px solid ${i === 3 && alerts.length > 0 ? '#450a0a' : '#1a2035'}`, borderRadius: '12px', padding: '20px', cursor: 'pointer', transition: 'border-color 0.2s' }}>
                                         <div style={{ fontSize: '24px', marginBottom: '8px' }}>{stat.icon}</div>
                                         <div style={{ fontSize: '32px', fontWeight: '800', color: stat.color, lineHeight: 1 }}>{stat.value}</div>
                                         <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>{stat.label}</div>
                                     </div>
                                 ))}
                             </div>
-
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                                 <div style={{ background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: '20px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                         <span style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444' }}>🚨 {lang === 'ar' ? 'آخر التنبيهات' : 'Recent Alerts'}</span>
-                                        <button onClick={() => setActiveTab('alerts')} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '12px', cursor: 'pointer' }}>
-                                            {lang === 'ar' ? 'عرض الكل ←' : 'View all →'}
-                                        </button>
+                                        <button onClick={() => setActiveTab('alerts')} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '12px', cursor: 'pointer' }}>{lang === 'ar' ? 'عرض الكل ←' : 'View all →'}</button>
                                     </div>
-                                    {alerts.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280', fontSize: '13px' }}>✅ {lang === 'ar' ? 'لا توجد تنبيهات' : 'No active alerts'}</div>
-                                    ) : alerts.slice(0, 3).map((a: any) => (
-                                        <div key={a.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
-                                            <div style={{ width: '8px', height: '8px', background: a.severity === 'high' ? '#ef4444' : '#fbbf24', borderRadius: '50%', marginTop: '5px', flexShrink: 0 }}></div>
-                                            <div>
-                                                <div style={{ fontSize: '13px', fontWeight: '600' }}>{a.title}</div>
-                                                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{a.type}</div>
+                                    {alerts.length === 0 ? <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280', fontSize: '13px' }}>✅ {lang === 'ar' ? 'لا توجد تنبيهات' : 'No active alerts'}</div>
+                                        : alerts.slice(0, 3).map((a: any) => (
+                                            <div key={a.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
+                                                <div style={{ width: '8px', height: '8px', background: a.severity === 'high' ? '#ef4444' : '#fbbf24', borderRadius: '50%', marginTop: '5px', flexShrink: 0 }}></div>
+                                                <div><div style={{ fontSize: '13px', fontWeight: '600' }}>{a.title}</div><div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{a.type}</div></div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))}
                                 </div>
-
                                 <div style={{ background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: '20px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                         <span style={{ fontSize: '13px', fontWeight: '600', color: '#0891b2' }}>⚖️ {lang === 'ar' ? 'آخر القرارات' : 'Recent Decisions'}</span>
-                                        <button onClick={() => setActiveTab('decisions')} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '12px', cursor: 'pointer' }}>
-                                            {lang === 'ar' ? 'عرض الكل ←' : 'View all →'}
-                                        </button>
+                                        <button onClick={() => setActiveTab('decisions')} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '12px', cursor: 'pointer' }}>{lang === 'ar' ? 'عرض الكل ←' : 'View all →'}</button>
                                     </div>
-                                    {decisions.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280', fontSize: '13px' }}>⚖️ {lang === 'ar' ? 'لا توجد قرارات' : 'No decisions yet'}</div>
-                                    ) : decisions.slice(0, 3).map((d: any) => (
-                                        <div key={d.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
-                                            <div style={{ width: '8px', height: '8px', background: '#0891b2', borderRadius: '50%', marginTop: '5px', flexShrink: 0 }}></div>
-                                            <div>
-                                                <div style={{ fontSize: '13px', fontWeight: '600' }}>{d.title}</div>
-                                                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{new Date(d.created_at).toLocaleDateString()}</div>
+                                    {decisions.length === 0 ? <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280', fontSize: '13px' }}>⚖️ {lang === 'ar' ? 'لا توجد قرارات' : 'No decisions yet'}</div>
+                                        : decisions.slice(0, 3).map((d: any) => (
+                                            <div key={d.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
+                                                <div style={{ width: '8px', height: '8px', background: '#0891b2', borderRadius: '50%', marginTop: '5px', flexShrink: 0 }}></div>
+                                                <div><div style={{ fontSize: '13px', fontWeight: '600' }}>{d.title}</div><div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{new Date(d.created_at).toLocaleDateString()}</div></div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))}
                                 </div>
                             </div>
-
                             {intelligence ? (
                                 <div style={{ background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: '20px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                         <span style={{ fontSize: '13px', fontWeight: '600', color: '#a78bfa' }}>🎯 {lang === 'ar' ? 'صحة الشركة' : 'Company Health'}</span>
-                                        <button onClick={() => setActiveTab('intelligence')} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '12px', cursor: 'pointer' }}>
-                                            {lang === 'ar' ? 'تفاصيل ←' : 'Details →'}
-                                        </button>
+                                        <button onClick={() => setActiveTab('intelligence')} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '12px', cursor: 'pointer' }}>{lang === 'ar' ? 'تفاصيل ←' : 'Details →'}</button>
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
                                         {[
@@ -461,31 +443,19 @@ export default function Dashboard() {
                                             { label: lang === 'ar' ? 'الكلي' : 'Overall', value: intelligence.scores?.overall_score || 0, color: '#d97706' },
                                         ].map((sc, i) => (
                                             <div key={i} style={{ textAlign: 'center' }}>
-                                                <div style={{ position: 'relative', width: '64px', height: '64px', margin: '0 auto 8px' }}>
-                                                    <svg viewBox="0 0 36 36" style={{ width: '64px', height: '64px', transform: 'rotate(-90deg)' }}>
-                                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1a2035" strokeWidth="3" />
-                                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke={sc.color} strokeWidth="3" strokeDasharray={`${sc.value} 100`} strokeLinecap="round" />
-                                                    </svg>
-                                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '700', color: sc.color }}>{sc.value}%</div>
-                                                </div>
+                                                <SmallCircle value={sc.value} color={sc.color} />
                                                 <div style={{ fontSize: '11px', color: '#6b7280' }}>{sc.label}</div>
                                             </div>
                                         ))}
                                     </div>
-                                    {intelligence.summary && (
-                                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #1a2035', fontSize: '13px', color: '#9ca3af', lineHeight: '1.6' }}>
-                                            {intelligence.summary.substring(0, 200)}...
-                                        </div>
-                                    )}
+                                    {intelligence.summary && <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #1a2035', fontSize: '13px', color: '#9ca3af', lineHeight: '1.6' }}>{intelligence.summary.substring(0, 200)}...</div>}
                                 </div>
                             ) : (
                                 <div style={{ background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: '32px', textAlign: 'center' }}>
                                     <div style={{ fontSize: '32px', marginBottom: '12px' }}>🎯</div>
                                     <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>{lang === 'ar' ? 'لم يتم تحليل الشركة بعد' : 'Company not analyzed yet'}</div>
                                     <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px' }}>{lang === 'ar' ? 'ارفع وثائق وشغّل التحليل' : 'Upload documents and run analysis'}</div>
-                                    <button onClick={() => { setActiveTab('intelligence'); loadIntelligence() }} style={s.btn}>
-                                        {lang === 'ar' ? 'تحليل الآن ←' : 'Analyze Now →'}
-                                    </button>
+                                    <button onClick={() => { setActiveTab('intelligence'); loadIntelligence() }} style={s.btn}>{lang === 'ar' ? 'تحليل الآن ←' : 'Analyze Now →'}</button>
                                 </div>
                             )}
                         </div>
@@ -501,16 +471,12 @@ export default function Dashboard() {
                                     style={{ ...s.input, resize: 'none', minHeight: '100px', marginBottom: '12px' }} rows={4} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontSize: '11px', color: '#374151' }}>Ctrl+Enter {lang === 'ar' ? 'للإرسال' : 'to send'}</span>
-                                    <button onClick={handleAsk} disabled={asking || !question.trim()} style={s.btn}>
-                                        {asking ? '...' : lang === 'ar' ? 'اسأل ←' : 'Ask →'}
-                                    </button>
+                                    <button onClick={handleAsk} disabled={asking || !question.trim()} style={s.btn}>{asking ? '...' : lang === 'ar' ? 'اسأل ←' : 'Ask →'}</button>
                                 </div>
                             </div>
                             {answer && (
                                 <div style={{ ...s.card, borderColor: '#4C1D95' }}>
-                                    <div style={{ fontSize: '12px', color: '#a78bfa', marginBottom: '10px', fontWeight: '600' }}>
-                                        🧠 {lang === 'ar' ? 'الإجابة' : 'Answer'}
-                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#a78bfa', marginBottom: '10px', fontWeight: '600' }}>🧠 {lang === 'ar' ? 'الإجابة' : 'Answer'}</div>
                                     <p style={{ fontSize: '14px', color: '#d1d5db', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}>{answer}</p>
                                     {sources.length > 0 && (
                                         <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #1a2035' }}>
@@ -526,9 +492,7 @@ export default function Dashboard() {
                             )}
                             {conversations.length > 0 && (
                                 <div style={s.card}>
-                                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px', fontWeight: '600' }}>
-                                        🕒 {lang === 'ar' ? 'المحادثات السابقة' : 'Previous conversations'}
-                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px', fontWeight: '600' }}>🕒 {lang === 'ar' ? 'المحادثات السابقة' : 'Previous conversations'}</div>
                                     {conversations.slice(0, 5).map((c: any) => (
                                         <div key={c.id} style={{ borderBottom: '1px solid #1a2035', paddingBottom: '14px', marginBottom: '14px' }}>
                                             <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
@@ -565,13 +529,7 @@ export default function Dashboard() {
                                                 { label: lang === 'ar' ? 'الكلي' : 'Overall', value: intelligence.scores.overall_score, color: '#d97706' },
                                             ].map((sc, i) => (
                                                 <div key={i} style={{ ...s.stat, textAlign: 'center' }}>
-                                                    <div style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto 12px' }}>
-                                                        <svg viewBox="0 0 36 36" style={{ width: '80px', height: '80px', transform: 'rotate(-90deg)' }}>
-                                                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1a2035" strokeWidth="2.5" />
-                                                            <circle cx="18" cy="18" r="15.9" fill="none" stroke={sc.color} strokeWidth="2.5" strokeDasharray={`${sc.value} 100`} strokeLinecap="round" />
-                                                        </svg>
-                                                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: '800', color: sc.color }}>{sc.value}%</div>
-                                                    </div>
+                                                    <ScoreCircle value={sc.value} color={sc.color} />
                                                     <div style={{ fontSize: '12px', color: '#6b7280' }}>{sc.label}</div>
                                                 </div>
                                             ))}
@@ -581,7 +539,6 @@ export default function Dashboard() {
                                         <div style={{ ...s.card, borderColor: '#4C1D95', background: '#0a0520' }}>
                                             <div style={{ fontSize: '12px', color: '#a78bfa', marginBottom: '8px', fontWeight: '600' }}>📋 {lang === 'ar' ? 'الملخص التنفيذي' : 'Executive Summary'}</div>
                                             <p style={{ fontSize: '14px', color: '#d1d5db', lineHeight: '1.7' }}>{intelligence.summary}</p>
-                                            {intelligence.from_cache && <span style={{ fontSize: '11px', color: '#374151' }}>⚡ {lang === 'ar' ? 'من الذاكرة المؤقتة' : 'Cached'}</span>}
                                         </div>
                                     )}
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
@@ -640,9 +597,7 @@ export default function Dashboard() {
                                             </div>
                                         </div>
                                     )}
-                                    <button onClick={() => loadIntelligence(true)} style={{ ...s.btnOutline, width: '100%', padding: '12px' }}>
-                                        🔄 {lang === 'ar' ? 'تحديث التحليل' : 'Refresh Analysis'}
-                                    </button>
+                                    <button onClick={() => loadIntelligence(true)} style={{ ...s.btnOutline, width: '100%', padding: '12px' }}>🔄 {lang === 'ar' ? 'تحديث التحليل' : 'Refresh Analysis'}</button>
                                 </>
                             ) : (
                                 <div style={{ ...s.card, textAlign: 'center', padding: '60px' }}>
@@ -661,7 +616,7 @@ export default function Dashboard() {
                             {loadingBriefing ? (
                                 <div style={{ ...s.card, textAlign: 'center', padding: '60px' }}>
                                     <div style={{ fontSize: '40px', marginBottom: '16px' }}>📊</div>
-                                    <div style={{ color: '#a78bfa' }}>{lang === 'ar' ? 'جاري إنشاء التقرير...' : 'Generating briefing...'}</div>
+                                    <div style={{ color: '#a78bfa' }}>{lang === 'ar' ? 'جاري إنشاء التقرير...' : 'Generating...'}</div>
                                 </div>
                             ) : briefing ? (
                                 <>
@@ -704,16 +659,8 @@ export default function Dashboard() {
                                         </div>
                                     )}
                                     <div style={{ display: 'flex', gap: '10px' }}>
-                                        <button onClick={loadBriefing} style={{ ...s.btnOutline, flex: 1, padding: '12px' }}>
-                                            🔄 {lang === 'ar' ? 'إنشاء تقرير جديد' : 'New Briefing'}
-                                        </button>
-                                        <button onClick={() => {
-                                            const text = `${briefing.headline}\n\n${briefing.top_priorities?.map((p: any) => `• ${p.title}: ${p.action}`).join('\n')}`
-                                            navigator.clipboard.writeText(text)
-                                            showToast(lang === 'ar' ? 'تم النسخ!' : 'Copied!')
-                                        }} style={{ ...s.btnOutline, padding: '12px 20px' }}>
-                                            📋 {lang === 'ar' ? 'نسخ' : 'Copy'}
-                                        </button>
+                                        <button onClick={loadBriefing} style={{ ...s.btnOutline, flex: 1, padding: '12px' }}>🔄 {lang === 'ar' ? 'تقرير جديد' : 'New Briefing'}</button>
+                                        <button onClick={() => { const t = `${briefing.headline}\n\n${briefing.top_priorities?.map((p: any) => `• ${p.title}: ${p.action}`).join('\n')}`; navigator.clipboard.writeText(t); showToast(lang === 'ar' ? 'تم النسخ!' : 'Copied!') }} style={{ ...s.btnOutline, padding: '12px 20px' }}>📋 {lang === 'ar' ? 'نسخ' : 'Copy'}</button>
                                     </div>
                                 </>
                             ) : (
@@ -733,35 +680,24 @@ export default function Dashboard() {
                             {(profile?.role === 'owner' || profile?.role === 'dept_head') && (
                                 <div style={s.card}>
                                     <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px' }}>⚖️ {lang === 'ar' ? 'تسجيل قرار جديد' : 'Record New Decision'}</div>
-                                    <input type="text" placeholder={lang === 'ar' ? 'عنوان القرار...' : 'Decision title...'} value={newDecision.title}
-                                        onChange={e => setNewDecision(p => ({ ...p, title: e.target.value }))}
-                                        style={{ ...s.input, marginBottom: '10px' }} />
-                                    <textarea placeholder={lang === 'ar' ? 'لماذا تم اتخاذ هذا القرار؟' : 'Why was this decision made?'} value={newDecision.description}
-                                        onChange={e => setNewDecision(p => ({ ...p, description: e.target.value }))}
-                                        style={{ ...s.input, resize: 'none', marginBottom: '10px' }} rows={3} />
-                                    <button onClick={handleAddDecision} disabled={addingDecision || !newDecision.title} style={s.btn}>
-                                        {addingDecision ? '...' : lang === 'ar' ? 'تسجيل القرار' : 'Record Decision'}
-                                    </button>
+                                    <input type="text" placeholder={lang === 'ar' ? 'عنوان القرار...' : 'Decision title...'} value={newDecision.title} onChange={e => setNewDecision(p => ({ ...p, title: e.target.value }))} style={{ ...s.input, marginBottom: '10px' }} />
+                                    <textarea placeholder={lang === 'ar' ? 'لماذا تم اتخاذ هذا القرار؟' : 'Why was this decision made?'} value={newDecision.description} onChange={e => setNewDecision(p => ({ ...p, description: e.target.value }))} style={{ ...s.input, resize: 'none', marginBottom: '10px' }} rows={3} />
+                                    <button onClick={handleAddDecision} disabled={addingDecision || !newDecision.title} style={s.btn}>{addingDecision ? '...' : lang === 'ar' ? 'تسجيل القرار' : 'Record Decision'}</button>
                                 </div>
                             )}
                             <div style={s.card}>
-                                <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px', color: '#6b7280' }}>
-                                    {lang === 'ar' ? `القرارات (${decisions.length})` : `Decisions (${decisions.length})`}
-                                </div>
-                                {decisions.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '32px', color: '#6b7280', fontSize: '14px' }}>
-                                        {lang === 'ar' ? 'لا توجد قرارات مسجلة بعد' : 'No decisions recorded yet'}
-                                    </div>
-                                ) : decisions.map((d: any) => (
-                                    <div key={d.id} style={{ background: '#080C14', border: '1px solid #1a2035', borderRadius: '8px', padding: '14px', marginBottom: '8px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                            <span style={{ fontSize: '14px', fontWeight: '600' }}>{d.title}</span>
-                                            <span style={s.badge(d.status === 'active' ? 'green' : 'neutral')}>{d.status}</span>
+                                <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px', color: '#6b7280' }}>{lang === 'ar' ? `القرارات (${decisions.length})` : `Decisions (${decisions.length})`}</div>
+                                {decisions.length === 0 ? <div style={{ textAlign: 'center', padding: '32px', color: '#6b7280', fontSize: '14px' }}>{lang === 'ar' ? 'لا توجد قرارات بعد' : 'No decisions yet'}</div>
+                                    : decisions.map((d: any) => (
+                                        <div key={d.id} style={{ background: '#080C14', border: '1px solid #1a2035', borderRadius: '8px', padding: '14px', marginBottom: '8px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                                <span style={{ fontSize: '14px', fontWeight: '600' }}>{d.title}</span>
+                                                <span style={s.badge(d.status === 'active' ? 'green' : 'neutral')}>{d.status}</span>
+                                            </div>
+                                            {d.description && <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 6px' }}>{d.description}</p>}
+                                            <div style={{ fontSize: '11px', color: '#374151' }}>{new Date(d.created_at).toLocaleDateString()}</div>
                                         </div>
-                                        {d.description && <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 6px' }}>{d.description}</p>}
-                                        <div style={{ fontSize: '11px', color: '#374151' }}>{new Date(d.created_at).toLocaleDateString()}</div>
-                                    </div>
-                                ))}
+                                    ))}
                             </div>
                         </div>
                     )}
@@ -769,9 +705,7 @@ export default function Dashboard() {
                     {/* ALERTS */}
                     {activeTab === 'alerts' && (
                         <div style={s.card}>
-                            <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '16px', color: '#ef4444' }}>
-                                🚨 {lang === 'ar' ? `التنبيهات النشطة (${alerts.length})` : `Active Alerts (${alerts.length})`}
-                            </div>
+                            <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '16px', color: '#ef4444' }}>🚨 {lang === 'ar' ? `التنبيهات النشطة (${alerts.length})` : `Active Alerts (${alerts.length})`}</div>
                             {alerts.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: '40px' }}>
                                     <div style={{ fontSize: '40px', marginBottom: '12px' }}>✅</div>
@@ -786,9 +720,7 @@ export default function Dashboard() {
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                                             <span style={s.badge(a.severity === 'high' ? 'red' : 'neutral')}>{a.severity}</span>
-                                            {profile?.role === 'owner' && (
-                                                <button onClick={() => handleResolveAlert(a.id)} style={s.btnOutline}>{lang === 'ar' ? 'حل' : 'Resolve'}</button>
-                                            )}
+                                            {profile?.role === 'owner' && <button onClick={() => handleResolveAlert(a.id)} style={s.btnOutline}>{lang === 'ar' ? 'حل' : 'Resolve'}</button>}
                                         </div>
                                     </div>
                                     {a.description && <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{a.description}</p>}
@@ -802,13 +734,9 @@ export default function Dashboard() {
                         <div>
                             <div style={s.card}>
                                 <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>🔍 {lang === 'ar' ? 'محرك تحليل الأسباب الجذرية' : 'Root Cause Analysis Engine'}</div>
-                                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>{lang === 'ar' ? 'اسأل: ليه حصلت كذا؟ وهيشرحلك السبب الحقيقي بالأدلة' : 'Ask why something happened — get evidence-backed root cause analysis'}</p>
-                                <textarea value={rootCauseQuery} onChange={e => setRootCauseQuery(e.target.value)}
-                                    placeholder={lang === 'ar' ? 'مثال: ليه نزلت المبيعات؟' : 'Example: Why did sales drop this month?'}
-                                    style={{ ...s.input, resize: 'none', marginBottom: '10px' }} rows={3} />
-                                <button onClick={handleRootCause} disabled={loadingRootCause || !rootCauseQuery.trim()} style={s.btn}>
-                                    {loadingRootCause ? (lang === 'ar' ? 'جاري التحليل...' : 'Analyzing...') : (lang === 'ar' ? 'حلل الأسباب' : 'Analyze')}
-                                </button>
+                                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>{lang === 'ar' ? 'اسأل: ليه حصلت كذا؟' : 'Ask why something happened — get evidence-backed analysis'}</p>
+                                <textarea value={rootCauseQuery} onChange={e => setRootCauseQuery(e.target.value)} placeholder={lang === 'ar' ? 'مثال: ليه نزلت المبيعات؟' : 'Example: Why did sales drop?'} style={{ ...s.input, resize: 'none', marginBottom: '10px' }} rows={3} />
+                                <button onClick={handleRootCause} disabled={loadingRootCause || !rootCauseQuery.trim()} style={s.btn}>{loadingRootCause ? (lang === 'ar' ? 'جاري التحليل...' : 'Analyzing...') : (lang === 'ar' ? 'حلل الأسباب' : 'Analyze')}</button>
                             </div>
                             {rootCause && (
                                 <>
@@ -843,7 +771,7 @@ export default function Dashboard() {
                                     )}
                                     {rootCause.prevention_recommendations?.length > 0 && (
                                         <div style={s.card}>
-                                            <div style={{ fontSize: '12px', color: '#4ade80', marginBottom: '12px', fontWeight: '600' }}>🛡️ {lang === 'ar' ? 'توصيات للوقاية' : 'Prevention Recommendations'}</div>
+                                            <div style={{ fontSize: '12px', color: '#4ade80', marginBottom: '12px', fontWeight: '600' }}>🛡️ {lang === 'ar' ? 'توصيات للوقاية' : 'Prevention'}</div>
                                             {rootCause.prevention_recommendations.map((r: string, i: number) => (
                                                 <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                                                     <span style={{ color: '#4ade80' }}>✓</span>
@@ -904,9 +832,7 @@ export default function Dashboard() {
                                             ))}
                                         </div>
                                     )}
-                                    <button onClick={loadWhatChanged} style={{ ...s.btnOutline, width: '100%', padding: '12px' }}>
-                                        🔄 {lang === 'ar' ? 'تحديث التحليل' : 'Refresh Analysis'}
-                                    </button>
+                                    <button onClick={loadWhatChanged} style={{ ...s.btnOutline, width: '100%', padding: '12px' }}>🔄 {lang === 'ar' ? 'تحديث التحليل' : 'Refresh'}</button>
                                 </>
                             ) : (
                                 <div style={{ ...s.card, textAlign: 'center', padding: '60px' }}>
@@ -925,18 +851,12 @@ export default function Dashboard() {
                             <div style={s.card}>
                                 <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>📈 {lang === 'ar' ? 'إضافة مؤشر جديد' : 'Add New KPI'}</div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                                    <input placeholder={lang === 'ar' ? 'اسم المؤشر...' : 'KPI name...'} value={newKpi.name}
-                                        onChange={e => setNewKpi(p => ({ ...p, name: e.target.value }))} style={s.input} />
-                                    <input type="number" placeholder={lang === 'ar' ? 'القيمة الحالية' : 'Current value'} value={newKpi.value}
-                                        onChange={e => setNewKpi(p => ({ ...p, value: e.target.value }))} style={s.input} />
-                                    <input type="number" placeholder={lang === 'ar' ? 'القيمة السابقة' : 'Previous value'} value={newKpi.previous_value}
-                                        onChange={e => setNewKpi(p => ({ ...p, previous_value: e.target.value }))} style={s.input} />
-                                    <input placeholder={lang === 'ar' ? 'الوحدة' : 'Unit (%,$...)'} value={newKpi.unit}
-                                        onChange={e => setNewKpi(p => ({ ...p, unit: e.target.value }))} style={s.input} />
+                                    <input placeholder={lang === 'ar' ? 'اسم المؤشر...' : 'KPI name...'} value={newKpi.name} onChange={e => setNewKpi(p => ({ ...p, name: e.target.value }))} style={s.input} />
+                                    <input type="number" placeholder={lang === 'ar' ? 'القيمة الحالية' : 'Current'} value={newKpi.value} onChange={e => setNewKpi(p => ({ ...p, value: e.target.value }))} style={s.input} />
+                                    <input type="number" placeholder={lang === 'ar' ? 'السابقة' : 'Previous'} value={newKpi.previous_value} onChange={e => setNewKpi(p => ({ ...p, previous_value: e.target.value }))} style={s.input} />
+                                    <input placeholder="%, $..." value={newKpi.unit} onChange={e => setNewKpi(p => ({ ...p, unit: e.target.value }))} style={s.input} />
                                 </div>
-                                <button onClick={handleAddKpi} disabled={addingKpi || !newKpi.name || !newKpi.value} style={s.btn}>
-                                    {addingKpi ? '...' : lang === 'ar' ? 'إضافة المؤشر' : 'Add KPI'}
-                                </button>
+                                <button onClick={handleAddKpi} disabled={addingKpi || !newKpi.name || !newKpi.value} style={s.btn}>{addingKpi ? '...' : lang === 'ar' ? 'إضافة المؤشر' : 'Add KPI'}</button>
                             </div>
                             {kpis.length === 0 ? (
                                 <div style={{ ...s.card, textAlign: 'center', padding: '60px' }}>
@@ -951,8 +871,7 @@ export default function Dashboard() {
                                         const isUp = change !== null && change >= 0
                                         return (
                                             <div key={kpi.id} style={{ ...s.stat, position: 'relative' }}>
-                                                <button onClick={() => handleDeleteKpi(kpi.id)}
-                                                    style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: '#374151', cursor: 'pointer', fontSize: '14px' }}>✕</button>
+                                                <button onClick={() => handleDeleteKpi(kpi.id)} style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: '#374151', cursor: 'pointer', fontSize: '14px' }}>✕</button>
                                                 <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>{kpi.name}</div>
                                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                                                     <span style={{ fontSize: '32px', fontWeight: '800', color: '#fff' }}>{kpi.value}</span>
@@ -960,18 +879,12 @@ export default function Dashboard() {
                                                 </div>
                                                 {change !== null && (
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
-                                                        <span style={{ fontSize: '16px', color: isUp ? '#4ade80' : '#f87171' }}>{isUp ? '↑' : '↓'}</span>
-                                                        <span style={{ fontSize: '13px', fontWeight: '600', color: isUp ? '#4ade80' : '#f87171' }}>
-                                                            {Math.abs(change).toFixed(1)}%
-                                                        </span>
-                                                        <span style={{ fontSize: '11px', color: '#6b7280' }}>
-                                                            {lang === 'ar' ? 'من' : 'from'} {kpi.previous_value}{kpi.unit}
-                                                        </span>
+                                                        <span style={{ color: isUp ? '#4ade80' : '#f87171' }}>{isUp ? '↑' : '↓'}</span>
+                                                        <span style={{ fontSize: '13px', fontWeight: '600', color: isUp ? '#4ade80' : '#f87171' }}>{Math.abs(change).toFixed(1)}%</span>
+                                                        <span style={{ fontSize: '11px', color: '#6b7280' }}>{lang === 'ar' ? 'من' : 'from'} {kpi.previous_value}{kpi.unit}</span>
                                                     </div>
                                                 )}
-                                                <div style={{ fontSize: '11px', color: '#374151', marginTop: '6px' }}>
-                                                    {new Date(kpi.date).toLocaleDateString()}
-                                                </div>
+                                                <div style={{ fontSize: '11px', color: '#374151', marginTop: '6px' }}>{new Date(kpi.date).toLocaleDateString()}</div>
                                             </div>
                                         )
                                     })}
@@ -988,46 +901,33 @@ export default function Dashboard() {
                                 <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '120px', border: '2px dashed #1a2035', borderRadius: '10px', cursor: 'pointer', transition: 'border-color 0.2s' }}
                                     onMouseEnter={e => (e.currentTarget.style.borderColor = '#7C3AED')}
                                     onMouseLeave={e => (e.currentTarget.style.borderColor = '#1a2035')}>
-                                    {uploading ? (
-                                        <div style={{ color: '#a78bfa', fontSize: '14px' }}>{lang === 'ar' ? 'جاري المعالجة...' : 'Processing...'}</div>
-                                    ) : (
-                                        <>
-                                            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📄</div>
-                                            <div style={{ fontSize: '13px', color: '#6b7280' }}>{lang === 'ar' ? 'اضغط لرفع ملف' : 'Click to upload'}</div>
-                                            <div style={{ fontSize: '11px', color: '#374151', marginTop: '4px' }}>PDF, DOCX, TXT, XLSX, CSV, Code</div>
-                                        </>
+                                    {uploading ? <div style={{ color: '#a78bfa', fontSize: '14px' }}>{lang === 'ar' ? 'جاري المعالجة...' : 'Processing...'}</div> : (
+                                        <><div style={{ fontSize: '24px', marginBottom: '8px' }}>📄</div><div style={{ fontSize: '13px', color: '#6b7280' }}>{lang === 'ar' ? 'اضغط لرفع ملف' : 'Click to upload'}</div><div style={{ fontSize: '11px', color: '#374151', marginTop: '4px' }}>PDF, DOCX, TXT, XLSX, CSV, Code</div></>
                                     )}
                                     <input type="file" style={{ display: 'none' }} accept=".pdf,.docx,.txt,.xlsx,.csv,.py,.js,.ts,.tsx,.jsx,.cpp,.java,.html,.css" onChange={handleUpload} />
                                 </label>
                             </div>
                             <div style={s.card}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#6b7280' }}>
-                                        {lang === 'ar' ? `الوثائق (${documents.length})` : `Documents (${documents.length})`}
-                                    </div>
-                                    <input placeholder={lang === 'ar' ? '🔍 بحث...' : '🔍 Search...'} value={docSearch}
-                                        onChange={e => setDocSearch(e.target.value)}
-                                        style={{ ...s.input, width: '180px', padding: '6px 12px', fontSize: '12px' }} />
+                                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#6b7280' }}>{lang === 'ar' ? `الوثائق (${documents.length})` : `Documents (${documents.length})`}</div>
+                                    <input placeholder={lang === 'ar' ? '🔍 بحث...' : '🔍 Search...'} value={docSearch} onChange={e => setDocSearch(e.target.value)} style={{ ...s.input, width: '180px', padding: '6px 12px', fontSize: '12px' }} />
                                 </div>
-                                {filteredDocs.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '32px', color: '#6b7280', fontSize: '14px' }}>
-                                        {docSearch ? (lang === 'ar' ? 'لا نتائج' : 'No results') : (lang === 'ar' ? 'لا توجد وثائق بعد' : 'No documents yet')}
-                                    </div>
-                                ) : filteredDocs.map((doc: any) => (
-                                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #1a2035' }}>
-                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '20px' }}>📄</span>
-                                            <div>
-                                                <div style={{ fontSize: '13px', fontWeight: '600' }}>{doc.name}</div>
-                                                <div style={{ fontSize: '11px', color: '#6b7280' }}>{new Date(doc.created_at).toLocaleDateString()}</div>
+                                {filteredDocs.length === 0 ? <div style={{ textAlign: 'center', padding: '32px', color: '#6b7280', fontSize: '14px' }}>{docSearch ? (lang === 'ar' ? 'لا نتائج' : 'No results') : (lang === 'ar' ? 'لا توجد وثائق بعد' : 'No documents yet')}</div>
+                                    : filteredDocs.map((doc: any) => (
+                                        <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #1a2035' }}>
+                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '20px' }}>📄</span>
+                                                <div>
+                                                    <div style={{ fontSize: '13px', fontWeight: '600' }}>{doc.name}</div>
+                                                    <div style={{ fontSize: '11px', color: '#6b7280' }}>{new Date(doc.created_at).toLocaleDateString()}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                <span style={s.badge(doc.status === 'completed' ? 'green' : 'neutral')}>{doc.status}</span>
+                                                <button onClick={() => handleDelete(doc.id)} style={{ ...s.btnOutline, color: '#ef4444', borderColor: '#450a0a' }}>✕</button>
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            <span style={s.badge(doc.status === 'completed' ? 'green' : 'neutral')}>{doc.status}</span>
-                                            <button onClick={() => handleDelete(doc.id)} style={{ ...s.btnOutline, color: '#ef4444', borderColor: '#450a0a' }}>✕</button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
                             </div>
                         </div>
                     )}
@@ -1036,26 +936,23 @@ export default function Dashboard() {
                     {activeTab === 'timeline' && (
                         <div style={s.card}>
                             <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '20px' }}>📅 {lang === 'ar' ? 'تاريخ الشركة' : 'Company Timeline'}</div>
-                            {timeline.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280', fontSize: '14px' }}>
-                                    {lang === 'ar' ? 'ارفع وثائق لاستخراج الأحداث تلقائياً' : 'Upload documents to auto-extract events'}
-                                </div>
-                            ) : (
-                                <div style={{ position: 'relative', paddingLeft: '24px', borderLeft: '2px solid #1a2035' }}>
-                                    {timeline.map((event: any, i: number) => (
-                                        <div key={event.id} style={{ position: 'relative', marginBottom: '24px' }}>
-                                            <div style={{ position: 'absolute', left: '-33px', width: '18px', height: '18px', background: '#7C3AED', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700' }}>{i + 1}</div>
-                                            <div style={{ background: '#080C14', border: '1px solid #1a2035', borderRadius: '8px', padding: '12px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                                    <span style={{ fontSize: '13px', fontWeight: '600' }}>{event.title}</span>
-                                                    <span style={{ fontSize: '11px', color: '#7C3AED' }}>{new Date(event.event_date).toLocaleDateString()}</span>
+                            {timeline.length === 0 ? <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280', fontSize: '14px' }}>{lang === 'ar' ? 'ارفع وثائق لاستخراج الأحداث تلقائياً' : 'Upload documents to auto-extract events'}</div>
+                                : (
+                                    <div style={{ position: 'relative', paddingLeft: '24px', borderLeft: '2px solid #1a2035' }}>
+                                        {timeline.map((event: any, i: number) => (
+                                            <div key={event.id} style={{ position: 'relative', marginBottom: '24px' }}>
+                                                <div style={{ position: 'absolute', left: '-33px', width: '18px', height: '18px', background: '#7C3AED', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700' }}>{i + 1}</div>
+                                                <div style={{ background: '#080C14', border: '1px solid #1a2035', borderRadius: '8px', padding: '12px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                                        <span style={{ fontSize: '13px', fontWeight: '600' }}>{event.title}</span>
+                                                        <span style={{ fontSize: '11px', color: '#7C3AED' }}>{new Date(event.event_date).toLocaleDateString()}</span>
+                                                    </div>
+                                                    <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>{event.description}</p>
                                                 </div>
-                                                <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>{event.description}</p>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                        ))}
+                                    </div>
+                                )}
                         </div>
                     )}
 
@@ -1066,14 +963,11 @@ export default function Dashboard() {
                                 <div style={s.card}>
                                     <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px' }}>➕ {lang === 'ar' ? 'دعوة عضو جديد' : 'Invite Member'}</div>
                                     <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-                                        <select value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)}
-                                            style={{ ...s.input, width: 'auto' }}>
+                                        <select value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)} style={{ ...s.input, width: 'auto' }}>
                                             <option value="employee">👤 {lang === 'ar' ? 'موظف' : 'Employee'}</option>
                                             <option value="dept_head">🏢 {lang === 'ar' ? 'مدير قسم' : 'Dept Head'}</option>
                                         </select>
-                                        <button onClick={handleGenerateInvite} disabled={generatingCode} style={s.btn}>
-                                            {generatingCode ? '...' : lang === 'ar' ? 'إنشاء كود' : 'Generate Code'}
-                                        </button>
+                                        <button onClick={handleGenerateInvite} disabled={generatingCode} style={s.btn}>{generatingCode ? '...' : lang === 'ar' ? 'إنشاء كود' : 'Generate'}</button>
                                     </div>
                                     {inviteCodes.length > 0 && (
                                         <div>
@@ -1084,9 +978,7 @@ export default function Dashboard() {
                                                         <span style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: '700', color: '#a78bfa' }}>{code.code}</span>
                                                         <span style={{ fontSize: '11px', color: '#6b7280', marginLeft: '10px' }}>{code.role}</span>
                                                     </div>
-                                                    <button onClick={() => { navigator.clipboard.writeText(code.code); showToast(lang === 'ar' ? 'تم النسخ!' : 'Copied!') }} style={s.btnOutline}>
-                                                        {lang === 'ar' ? 'نسخ' : 'Copy'}
-                                                    </button>
+                                                    <button onClick={() => { navigator.clipboard.writeText(code.code); showToast(lang === 'ar' ? 'تم النسخ!' : 'Copied!') }} style={s.btnOutline}>{lang === 'ar' ? 'نسخ' : 'Copy'}</button>
                                                 </div>
                                             ))}
                                         </div>
@@ -1094,9 +986,7 @@ export default function Dashboard() {
                                 </div>
                             )}
                             <div style={s.card}>
-                                <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '16px', color: '#6b7280' }}>
-                                    {lang === 'ar' ? `أعضاء الفريق (${members.length})` : `Team Members (${members.length})`}
-                                </div>
+                                <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '16px', color: '#6b7280' }}>{lang === 'ar' ? `أعضاء الفريق (${members.length})` : `Team Members (${members.length})`}</div>
                                 {members.map((m: any) => (
                                     <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1a2035' }}>
                                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -1109,14 +999,8 @@ export default function Dashboard() {
                                             </div>
                                         </div>
                                         {profile?.role === 'owner' && m.id !== user?.id && (
-                                            <button onClick={async () => {
-                                                if (!confirm(lang === 'ar' ? 'هل أنت متأكد؟' : 'Remove member?')) return
-                                                await fetch('/api/team', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: m.id }) })
-                                                setMembers(prev => prev.filter(x => x.id !== m.id))
-                                                showToast(lang === 'ar' ? 'تم إزالة العضو' : 'Member removed', 'info')
-                                            }} style={{ ...s.btnOutline, color: '#ef4444', borderColor: '#450a0a' }}>
-                                                {lang === 'ar' ? 'إزالة' : 'Remove'}
-                                            </button>
+                                            <button onClick={async () => { if (!confirm(lang === 'ar' ? 'هل أنت متأكد؟' : 'Remove?')) return; await fetch('/api/team', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: m.id }) }); setMembers(prev => prev.filter(x => x.id !== m.id)); showToast(lang === 'ar' ? 'تم إزالة العضو' : 'Removed', 'info') }}
+                                                style={{ ...s.btnOutline, color: '#ef4444', borderColor: '#450a0a' }}>{lang === 'ar' ? 'إزالة' : 'Remove'}</button>
                                         )}
                                     </div>
                                 ))}
@@ -1150,11 +1034,8 @@ export default function Dashboard() {
                                         ))}
                                     </div>
                                 </div>
-                                <button onClick={handleSaveCompany} disabled={savingCompany} style={s.btn}>
-                                    {savingCompany ? '...' : lang === 'ar' ? 'حفظ الإعدادات' : 'Save Settings'}
-                                </button>
+                                <button onClick={handleSaveCompany} disabled={savingCompany} style={s.btn}>{savingCompany ? '...' : lang === 'ar' ? 'حفظ الإعدادات' : 'Save Settings'}</button>
                             </div>
-
                             <div style={s.card}>
                                 <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>👤 {lang === 'ar' ? 'معلوماتك' : 'Your Profile'}</div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', background: '#080C14', borderRadius: '10px', border: '1px solid #1a2035' }}>
@@ -1168,12 +1049,9 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             </div>
-
                             <div style={{ ...s.card, borderColor: '#450a0a' }}>
                                 <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#ef4444' }}>⚠️ {lang === 'ar' ? 'منطقة الخطر' : 'Danger Zone'}</div>
-                                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px' }}>
-                                    {lang === 'ar' ? 'تسجيل الخروج من حسابك' : 'Sign out from your account'}
-                                </p>
+                                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px' }}>{lang === 'ar' ? 'تسجيل الخروج من حسابك' : 'Sign out from your account'}</p>
                                 <button onClick={handleLogout} style={{ background: 'none', border: '1px solid #450a0a', color: '#ef4444', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>
                                     {lang === 'ar' ? '↩ تسجيل الخروج' : '↩ Sign Out'}
                                 </button>
@@ -1186,15 +1064,7 @@ export default function Dashboard() {
 
             {/* TOAST */}
             {toast && (
-                <div style={{
-                    position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-                    background: toast.type === 'success' ? '#052e16' : toast.type === 'error' ? '#450a0a' : '#0a1628',
-                    border: `1px solid ${toast.type === 'success' ? '#166534' : toast.type === 'error' ? '#991b1b' : '#1e3a5f'}`,
-                    color: toast.type === 'success' ? '#4ade80' : toast.type === 'error' ? '#f87171' : '#60a5fa',
-                    padding: '12px 24px', borderRadius: '10px', fontSize: '13px', fontWeight: '600',
-                    zIndex: 9999, display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
-                }}>
+                <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', background: toast.type === 'success' ? '#052e16' : toast.type === 'error' ? '#450a0a' : '#0a1628', border: `1px solid ${toast.type === 'success' ? '#166534' : toast.type === 'error' ? '#991b1b' : '#1e3a5f'}`, color: toast.type === 'success' ? '#4ade80' : toast.type === 'error' ? '#f87171' : '#60a5fa', padding: '12px 24px', borderRadius: '10px', fontSize: '13px', fontWeight: '600', zIndex: 9999, display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
                     {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'} {toast.message}
                 </div>
             )}
