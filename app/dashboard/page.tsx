@@ -42,16 +42,21 @@ export default function Dashboard() {
     const [companyEdit, setCompanyEdit] = useState({ name: '', industry: '', language: '', country: '' })
     const [savingCompany, setSavingCompany] = useState(false)
     const [showAlertsDropdown, setShowAlertsDropdown] = useState(false)
+    const [mounted, setMounted] = useState(false)
     const [isMobile, setIsMobile] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const router = useRouter()
 
     const isRTL = lang === 'ar'
+    const mobile = mounted && isMobile
 
     useEffect(() => { loadData() }, [])
 
     useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 768)
+        const check = () => {
+            setIsMobile(window.innerWidth < 768)
+            setMounted(true)
+        }
         check()
         window.addEventListener('resize', check)
         return () => window.removeEventListener('resize', check)
@@ -226,7 +231,7 @@ export default function Dashboard() {
     function handleNavClick(id: string) {
         setActiveTab(id)
         if (id === 'intelligence' && !intelligence) loadIntelligence()
-        if (isMobile) setSidebarOpen(false)
+        if (mobile) setSidebarOpen(false)
     }
 
     const navItems = [
@@ -250,7 +255,7 @@ export default function Dashboard() {
         sidebar: {
             width: '220px', background: '#0D1117', borderRight: '1px solid #1a2035',
             display: 'flex', flexDirection: 'column' as const, flexShrink: 0,
-            ...(isMobile ? {
+            ...(mobile ? {
                 position: 'fixed' as const, top: 0,
                 left: isRTL ? 'auto' : 0, right: isRTL ? 0 : 'auto',
                 height: '100vh', zIndex: 100,
@@ -262,8 +267,8 @@ export default function Dashboard() {
         navItem: (active: boolean) => ({ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: active ? '600' : '400', background: active ? '#1a0a2e' : 'transparent', color: active ? '#a78bfa' : '#6b7280', border: active ? '1px solid #4C1D95' : '1px solid transparent', transition: 'all 0.15s' }),
         main: { flex: 1, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden', minWidth: 0 },
         topbar: { background: '#0D1117', borderBottom: '1px solid #1a2035', padding: '0 16px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
-        content: { flex: 1, padding: isMobile ? '16px' : '24px', overflowY: 'auto' as const },
-        card: { background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: isMobile ? '16px' : '20px', marginBottom: '16px' },
+        content: { flex: 1, padding: mobile ? '16px' : '24px', overflowY: 'auto' as const },
+        card: { background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: mobile ? '16px' : '20px', marginBottom: '16px' },
         stat: { background: '#0D1117', border: '1px solid #1a2035', borderRadius: '10px', padding: '16px' },
         input: { width: '100%', background: '#080C14', border: '1px solid #1a2035', borderRadius: '8px', padding: '10px 14px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box' as const },
         btn: { background: '#7C3AED', border: 'none', color: '#fff', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' },
@@ -285,8 +290,7 @@ export default function Dashboard() {
 
     return (
         <div style={s.wrap}>
-            {/* MOBILE OVERLAY */}
-            {isMobile && sidebarOpen && (
+            {mobile && sidebarOpen && (
                 <div onClick={() => setSidebarOpen(false)}
                     style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 99 }} />
             )}
@@ -299,7 +303,7 @@ export default function Dashboard() {
                         <div style={{ fontWeight: '700', fontSize: '14px' }}>MemoryOS</div>
                         <div style={{ fontSize: '11px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{company?.name}</div>
                     </div>
-                    {isMobile && (
+                    {mobile && (
                         <button onClick={() => setSidebarOpen(false)}
                             style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '20px', padding: '4px', flexShrink: 0 }}>✕</button>
                     )}
@@ -331,7 +335,7 @@ export default function Dashboard() {
                 {/* TOPBAR */}
                 <div style={s.topbar}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {isMobile && (
+                        {mobile && (
                             <button onClick={() => setSidebarOpen(true)}
                                 style={{ background: 'none', border: '1px solid #1a2035', borderRadius: '8px', color: '#9ca3af', cursor: 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
                                 ☰
@@ -341,7 +345,7 @@ export default function Dashboard() {
                         <span style={{ fontSize: '14px', fontWeight: '600' }}>{navItems.find(n => n.id === activeTab)?.label}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        {!isMobile && [
+                        {!mobile && [
                             { label: lang === 'ar' ? 'وثائق' : 'Docs', value: documents.length, color: '#7C3AED' },
                             { label: lang === 'ar' ? 'قرارات' : 'Decisions', value: decisions.length, color: '#0891b2' },
                         ].map((stat, i) => (
@@ -363,7 +367,7 @@ export default function Dashboard() {
                                 )}
                             </button>
                             {showAlertsDropdown && (
-                                <div style={{ position: 'absolute', top: '44px', right: '0', width: isMobile ? '280px' : '320px', background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 1000, overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: '44px', right: '0', width: mobile ? '280px' : '320px', background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 1000, overflow: 'hidden' }}>
                                     <div style={{ padding: '12px 16px', borderBottom: '1px solid #1a2035', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span style={{ fontSize: '13px', fontWeight: '600' }}>🔔 {lang === 'ar' ? 'التنبيهات' : 'Alerts'} {alerts.length > 0 && <span style={{ color: '#ef4444' }}>({alerts.length})</span>}</span>
                                         <button onClick={() => { setActiveTab('alerts'); setShowAlertsDropdown(false) }} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: '11px', cursor: 'pointer' }}>
@@ -404,14 +408,14 @@ export default function Dashboard() {
                     {activeTab === 'overview' && (
                         <div>
                             <div style={{ marginBottom: '24px' }}>
-                                <h2 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '700', marginBottom: '4px' }}>
+                                <h2 style={{ fontSize: mobile ? '18px' : '22px', fontWeight: '700', marginBottom: '4px' }}>
                                     {lang === 'ar' ? `مرحباً، ${profile?.full_name?.split(' ')[0] || 'يا مدير'} 👋` : `Welcome back, ${profile?.full_name?.split(' ')[0] || 'there'} 👋`}
                                 </h2>
                                 <p style={{ fontSize: '13px', color: '#6b7280' }}>
                                     {company?.name} · {new Date().toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                 </p>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: mobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
                                 {[
                                     { icon: '📄', label: lang === 'ar' ? 'الوثائق' : 'Docs', value: documents.length, color: '#7C3AED', tab: 'documents' },
                                     { icon: '⚖️', label: lang === 'ar' ? 'القرارات' : 'Decisions', value: decisions.length, color: '#0891b2', tab: 'decisions' },
@@ -426,7 +430,7 @@ export default function Dashboard() {
                                     </div>
                                 ))}
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                                 <div style={{ background: '#0D1117', border: '1px solid #1a2035', borderRadius: '12px', padding: '20px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                         <span style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444' }}>🚨 {lang === 'ar' ? 'آخر التنبيهات' : 'Recent Alerts'}</span>
@@ -468,7 +472,7 @@ export default function Dashboard() {
                                             { label: lang === 'ar' ? 'الكلي' : 'Overall', value: intelligence.scores?.overall_score || 0, color: '#d97706' },
                                         ].map((sc, i) => (
                                             <div key={i} style={{ textAlign: 'center' }}>
-                                                <ScoreCircle value={sc.value} color={sc.color} size={isMobile ? 56 : 64} />
+                                                <ScoreCircle value={sc.value} color={sc.color} size={mobile ? 56 : 64} />
                                                 <div style={{ fontSize: '11px', color: '#6b7280' }}>{sc.label}</div>
                                             </div>
                                         ))}
@@ -554,7 +558,7 @@ export default function Dashboard() {
                                                 { label: lang === 'ar' ? 'الكلي' : 'Overall', value: intelligence.scores.overall_score, color: '#d97706' },
                                             ].map((sc, i) => (
                                                 <div key={i} style={{ ...s.stat, textAlign: 'center' }}>
-                                                    <ScoreCircle value={sc.value} color={sc.color} size={isMobile ? 60 : 80} />
+                                                    <ScoreCircle value={sc.value} color={sc.color} size={mobile ? 60 : 80} />
                                                     <div style={{ fontSize: '12px', color: '#6b7280' }}>{sc.label}</div>
                                                 </div>
                                             ))}
@@ -566,7 +570,7 @@ export default function Dashboard() {
                                             <p style={{ fontSize: '14px', color: '#d1d5db', lineHeight: '1.7' }}>{intelligence.summary}</p>
                                         </div>
                                     )}
-                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                                         {intelligence.risks?.length > 0 && (
                                             <div style={s.card}>
                                                 <div style={{ fontSize: '12px', color: '#ef4444', marginBottom: '12px', fontWeight: '600' }}>⚠️ {lang === 'ar' ? 'المخاطر' : 'Risks'} ({intelligence.risks.length})</div>
@@ -596,7 +600,7 @@ export default function Dashboard() {
                                     {intelligence.recommendations?.length > 0 && (
                                         <div style={s.card}>
                                             <div style={{ fontSize: '12px', color: '#fbbf24', marginBottom: '12px', fontWeight: '600' }}>💡 {lang === 'ar' ? 'التوصيات' : 'Recommendations'}</div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
                                                 {intelligence.recommendations.map((r: any, i: number) => (
                                                     <div key={i} style={{ background: '#080C14', border: '1px solid #1a2035', borderRadius: '8px', padding: '12px' }}>
                                                         <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
@@ -612,7 +616,7 @@ export default function Dashboard() {
                                     {intelligence.insights?.length > 0 && (
                                         <div style={s.card}>
                                             <div style={{ fontSize: '12px', color: '#0891b2', marginBottom: '12px', fontWeight: '600' }}>🔍 {lang === 'ar' ? 'رؤى ذكية' : 'Smart Insights'}</div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
                                                 {intelligence.insights.map((ins: any, i: number) => (
                                                     <div key={i} style={{ background: '#080C14', border: '1px solid #1a2035', borderRadius: '8px', padding: '12px' }}>
                                                         <div style={{ fontSize: '13px', fontWeight: '600', color: '#60a5fa', marginBottom: '4px' }}>{ins.title}</div>
@@ -875,8 +879,8 @@ export default function Dashboard() {
                         <div>
                             <div style={s.card}>
                                 <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>📈 {lang === 'ar' ? 'إضافة مؤشر' : 'Add KPI'}</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '2fr 1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                                    <input placeholder={lang === 'ar' ? 'اسم المؤشر' : 'KPI name'} value={newKpi.name} onChange={e => setNewKpi(p => ({ ...p, name: e.target.value }))} style={{ ...s.input, gridColumn: isMobile ? 'span 2' : 'auto' }} />
+                                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr 1fr' : '2fr 1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                                    <input placeholder={lang === 'ar' ? 'اسم المؤشر' : 'KPI name'} value={newKpi.name} onChange={e => setNewKpi(p => ({ ...p, name: e.target.value }))} style={{ ...s.input, gridColumn: mobile ? 'span 2' : 'auto' }} />
                                     <input type="number" placeholder={lang === 'ar' ? 'الحالية' : 'Current'} value={newKpi.value} onChange={e => setNewKpi(p => ({ ...p, value: e.target.value }))} style={s.input} />
                                     <input type="number" placeholder={lang === 'ar' ? 'السابقة' : 'Previous'} value={newKpi.previous_value} onChange={e => setNewKpi(p => ({ ...p, previous_value: e.target.value }))} style={s.input} />
                                     <input placeholder="%, $..." value={newKpi.unit} onChange={e => setNewKpi(p => ({ ...p, unit: e.target.value }))} style={s.input} />
@@ -890,7 +894,7 @@ export default function Dashboard() {
                                     <div style={{ color: '#6b7280', fontSize: '14px' }}>{lang === 'ar' ? 'أضف مؤشرات أداء شركتك' : 'Add your performance indicators'}</div>
                                 </div>
                             ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', gap: '12px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr 1fr' : 'repeat(3, 1fr)', gap: '12px' }}>
                                     {kpis.map((kpi: any) => {
                                         const change = kpi.previous_value ? ((kpi.value - kpi.previous_value) / kpi.previous_value * 100) : null
                                         const isUp = change !== null && change >= 0
@@ -933,7 +937,7 @@ export default function Dashboard() {
                             <div style={s.card}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                                     <div style={{ fontSize: '13px', fontWeight: '600', color: '#6b7280' }}>{lang === 'ar' ? `الوثائق (${documents.length})` : `Documents (${documents.length})`}</div>
-                                    <input placeholder={lang === 'ar' ? '🔍 بحث...' : '🔍 Search...'} value={docSearch} onChange={e => setDocSearch(e.target.value)} style={{ ...s.input, width: isMobile ? '100%' : '180px', padding: '6px 12px', fontSize: '12px' }} />
+                                    <input placeholder={lang === 'ar' ? '🔍 بحث...' : '🔍 Search...'} value={docSearch} onChange={e => setDocSearch(e.target.value)} style={{ ...s.input, width: mobile ? '100%' : '180px', padding: '6px 12px', fontSize: '12px' }} />
                                 </div>
                                 {filteredDocs.length === 0 ? <div style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>{docSearch ? 'No results' : (lang === 'ar' ? 'لا توجد وثائق' : 'No documents yet')}</div>
                                     : filteredDocs.map((doc: any) => (
@@ -1035,7 +1039,7 @@ export default function Dashboard() {
                         <div>
                             <div style={s.card}>
                                 <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '20px' }}>🏢 {lang === 'ar' ? 'إعدادات الشركة' : 'Company Settings'}</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                                     <div>
                                         <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>{lang === 'ar' ? 'اسم الشركة' : 'Company Name'}</div>
                                         <input value={companyEdit.name} onChange={e => setCompanyEdit(p => ({ ...p, name: e.target.value }))} style={s.input} />
